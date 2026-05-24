@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crystal Twins 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+	height: 100%;
+	overflow: hidden;
+	background: #080c12;
+	font-family: 'Exo 2', system-ui, sans-serif;
+	color: #e8eef8;
+}
+#app {
+	display: flex;
+	height: 100%;
+	flex-direction: row;
+}
+#viewport {
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+	min-width: 0;
+}
+#viewport canvas {
+	position: absolute;
+	inset: 0;
+	display: block;
+}
+/* Overlay screens */
+.overlay {
+	position: absolute;
+	inset: 0;
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	z-index: 10;
+	background: rgba(6, 10, 16, 0.88);
+	backdrop-filter: blur(4px);
+}
+.overlay.visible { display: flex; }
+.overlay h2 {
+	margin: 0 0 10px;
+	font-size: 26px;
+	color: #c0d8f8;
+	letter-spacing: 6px;
+	font-weight: 700;
+	text-shadow: 0 0 24px rgba(100, 180, 255, 0.5);
+}
+.overlay p { margin: 4px 0; font-size: 12px; color: #c0d0e0; }
+.overlay .blink { margin-top: 14px; font-size: 11px; animation: blink 0.8s step-end infinite; color: #80b8e0; }
+@keyframes blink { 50% { opacity: 0; } }
+.overlay .go-score { font-size: 14px; color: #a8d0f8; margin-top: 8px; }
+
+#titleScreen {
+	background: radial-gradient(ellipse at center, #111c30 0%, #060a10 100%);
+}
+#titleScreen h1 {
+	font-size: 28px;
+	letter-spacing: 8px;
+	color: #d0e8ff;
+	font-weight: 700;
+	text-shadow: 0 0 30px rgba(100, 180, 255, 0.5);
+	margin-bottom: 6px;
+}
+#titleScreen .sub { font-size: 11px; color: #80a0c0; letter-spacing: 4px; margin-bottom: 4px; }
+#titleScreen .tagline { font-size: 9px; color: #607090; font-style: italic; margin-bottom: 20px; }
+.touch-title-actions {
+	display: none;
+	flex-direction: column;
+	gap: 10px;
+	width: 180px;
+	margin-top: 12px;
+}
+.touch-title-actions .touch-btn { width: 100%; min-height: 44px; font-size: 12px; letter-spacing: 2px; }
+
+/* HUD */
+#hud {
+	width: 200px;
+	flex-shrink: 0;
+	background: linear-gradient(160deg, #1a2030 0%, #0f1820 100%);
+	border-left: 2px solid #2a3a50;
+	padding: 12px 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	overflow-y: auto;
+}
+.alert-panel {
+	display: none;
+	padding: 6px 8px;
+	border-radius: 3px;
+	font-size: 9px;
+	line-height: 1.35;
+}
+.alert-panel.visible { display: block; }
+.alert-panel.overflow { border: 1px solid #c06090; background: rgba(40,15,50,0.85); color: #f0b0c8; }
+.alert-panel.learn { border: 1px solid #50b0c0; background: rgba(8,25,38,0.9); color: #a0e0f0; }
+.alert-panel .al-title { font-size: 9px; font-weight: 700; letter-spacing: 1px; margin-bottom: 3px; color: #c0b8f0; }
+
+.stat-block label {
+	display: block;
+	font-size: 8px;
+	letter-spacing: 1.5px;
+	color: #6a90b0;
+	margin-bottom: 3px;
+	text-transform: uppercase;
+	font-weight: 600;
+}
+.stat-block .digits {
+	font-size: 16px;
+	line-height: 1.1;
+	color: #e8f4ff;
+	font-weight: 600;
+	letter-spacing: 1px;
+}
+.stat-block .digits.sm { font-size: 13px; }
+
+#nextWrap {
+	border: 1px solid #3a4a60;
+	background: #0a0e14;
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+}
+#next { display: block; image-rendering: pixelated; }
+#nextLabel { font-size: 9px; color: #5a7898; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+
+.controls-help {
+	font-size: 8px;
+	line-height: 1.6;
+	color: #3a4a5a;
+	margin-top: auto;
+	padding-top: 4px;
+}
+
+/* Touch bar */
+#touchBar {
+	display: none;
+	background: #0a0e14;
+	border-top: 1px solid #222a38;
+	padding: 8px 8px 12px;
+	flex-shrink: 0;
+}
+#app.landscape #touchBar { border-top: none; border-left: 1px solid #222a38; }
+
+.touch-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	max-width: 480px;
+	margin: 0 auto;
+}
+.touch-dpad {
+	display: grid;
+	grid-template-columns: 52px 52px 52px;
+	grid-template-rows: 52px 52px;
+	gap: 5px;
+}
+.touch-dpad .td-u { grid-column:2; grid-row:1; }
+.touch-dpad .td-l { grid-column:1; grid-row:2; }
+.touch-dpad .td-c { grid-column:2; grid-row:2; }
+.touch-dpad .td-r { grid-column:3; grid-row:2; }
+
+.touch-actions {
+	display: grid;
+	grid-template-columns: 52px 52px;
+	grid-template-rows: 52px 52px 52px;
+	gap: 5px;
+}
+.touch-actions .wide { grid-column: 1 / -1; }
+
+.touch-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 52px;
+	min-height: 52px;
+	border: 2px solid #4a6080;
+	border-radius: 10px;
+	background: linear-gradient(160deg, #22304a 0%, #161f30 100%);
+	color: #c8daf0;
+	font-family: 'Exo 2', system-ui, sans-serif;
+	font-size: 18px;
+	font-weight: 600;
+	cursor: pointer;
+	touch-action: none;
+	-webkit-tap-highlight-color: transparent;
+	box-shadow: 0 2px 0 #060a10, inset 0 1px 0 rgba(255,255,255,0.07);
+	user-select: none;
+	-webkit-user-select: none;
+}
+.touch-btn.drop { background: linear-gradient(160deg, #2a1838 0%, #180e22 100%); border-color: #6a40a0; font-size: 13px; letter-spacing: 1px; }
+.touch-btn.menu { font-size: 10px; letter-spacing: 0.5px; }
+.touch-btn.pressed, .touch-btn:active {
+	transform: translateY(2px);
+	box-shadow: 0 0 0 #060a10, inset 0 2px 6px rgba(0,0,0,0.5);
+	background: linear-gradient(160deg, #151f30 0%, #0d1420 100%);
+}
+
+/* Responsive */
+@media (max-width: 680px) {
+	#app { flex-direction: column; }
+	#hud {
+		width: 100%;
+		border-left: none;
+		border-top: 1px solid #2a3a50;
+		flex-direction: row;
+		flex-wrap: wrap;
+		padding: 8px;
+		gap: 6px;
+		max-height: 120px;
+		overflow-y: hidden;
+	}
+	.stat-block { flex: 1 1 28%; min-width: 64px; }
+	.stat-block .digits { font-size: 13px; }
+	#nextWrap { display: none; }
+	.controls-help { display: none; }
+	.alert-panel.learn { display: none !important; }
+	#touchBar { display: block; }
+}
+@media (hover: none) and (pointer: coarse) {
+	#touchBar { display: block; }
+	.touch-title-actions { display: flex; }
+	#titleScreen .blink { display: none; }
+}
+html.has-touch #touchBar { display: block; }
+html.has-touch .touch-title-actions { display: flex; }
+html.has-touch #titleScreen .blink { display: none; }
+html.has-touch body { overscroll-behavior: none; touch-action: manipulation; }
+
+.touch-view-row {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 4px 8px 0;
+	pointer-events: auto;
+}
+.touch-view-label {
+	font-size: 8px;
+	letter-spacing: 2px;
+	color: #6a90b0;
+	margin-right: 4px;
+}
+.touch-btn.touch-view {
+	min-width: 40px;
+	min-height: 40px;
+	font-size: 14px;
+	border-color: #4a6888;
+	background: linear-gradient(165deg, #1e2a3a, #121820);
+}
+#viewport canvas { touch-action: none; cursor: grab; }
+#viewport canvas.view-dragging { cursor: grabbing; }
+html.has-touch .touch-view-row,
+#touchBar .touch-view-row { display: flex; }
+@media (hover: none), (max-width: 720px) {
+	.touch-view-row { display: flex; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+	<div id="viewport">
+		<!-- Three.js canvas appended here by JS -->
+		<div class="overlay visible" id="titleScreen">
+			<h1>CRYSTAL TWINS 3D</h1>
+			<p class="sub">TWIN-CRYSTAL CAVERN · TRUE 3D</p>
+			<p class="tagline">Natural mineral growth · cyclic twinning · geological pressure</p>
+			<p class="blink">ENTER = DESCEND &nbsp;·&nbsp; A = AUTO-MINE</p>
+			<div class="touch-title-actions">
+				<button type="button" class="touch-btn" id="touchStart">DESCEND</button>
+				<button type="button" class="touch-btn" id="touchAuto">AUTO-MINE</button>
+			</div>
+		</div>
+		<div class="overlay" id="pauseOverlay">
+			<h2>CAVERN HOLD</h2>
+			<p class="blink">PRESS ENTER</p>
+		</div>
+		<div class="overlay" id="gameOverOverlay">
+			<h2>CAVE IN</h2>
+			<p class="go-score" id="goScore"></p>
+			<p class="blink">ENTER = RESTART</p>
+		</div>
+	</div>
+
+	<aside id="hud">
+		<div class="alert-panel overflow" id="overflowAlert">
+			<div class="al-title">CRYSTAL OVERFLOW</div>
+			<div id="overflowMsg">Vein in danger zone</div>
+		</div>
+		<div class="alert-panel learn visible" id="learnPanel">
+			<div class="al-title">GEOLOGY AI</div>
+			<div id="learnStat">0 moves</div>
+			<div id="learnLesson" style="margin-top:3px">—</div>
+		</div>
+		<div class="stat-block">
+			<label>Mode</label>
+			<div class="digits sm" id="modeLabel">MINE</div>
+		</div>
+		<div class="stat-block">
+			<label>Carats</label>
+			<div class="digits" id="score">000000</div>
+		</div>
+		<div class="stat-block">
+			<label>Gems Harvested</label>
+			<div class="digits sm" id="harvest">0</div>
+		</div>
+		<div class="stat-block">
+			<label>Depth</label>
+			<div class="digits sm" id="depth">100m</div>
+		</div>
+		<div class="stat-block">
+			<label>Lithostatic P</label>
+			<div class="digits sm" id="lithoPressure">2.7 MPa</div>
+		</div>
+		<div class="stat-block">
+			<label>Peak Stress</label>
+			<div class="digits sm" id="peakStress">0 MPa</div>
+		</div>
+		<div class="stat-block">
+			<label>Vein Stability</label>
+			<div class="digits sm" id="stability">100%</div>
+		</div>
+		<div id="geologyStatus" style="font-size:8px;color:#6a90b0;line-height:1.4;min-height:2em">Strata stable</div>
+		<div class="stat-block">
+			<label>Best Carats</label>
+			<div class="digits sm" id="best">000000</div>
+		</div>
+		<div class="stat-block">
+			<label>Deepest Vein</label>
+			<div class="digits sm" id="bestDepth">100m</div>
+		</div>
+		<div id="nextWrap">
+			<canvas id="next" width="64" height="48"></canvas>
+			<div id="nextLabel">Next Twin</div>
+		</div>
+		<div class="controls-help" id="controlsHelp">
+			Enter=mine · A=AI<br>
+			← →=X · ↑ ↓=Z · S=fall<br>
+			[ ] spin view · , .=tilt<br>
+			Pad: R-stick orbit · drag cavern
+		</div>
+	</aside>
+</div>
+
+<div id="touchBar" aria-label="Touch controls">
+	<div class="touch-view-row" aria-label="Spin cavern view">
+		<span class="touch-view-label">VIEW</span>
+		<button type="button" class="touch-btn touch-view" data-view="yawL" title="Spin left">⟲</button>
+		<button type="button" class="touch-btn touch-view" data-view="yawR" title="Spin right">⟳</button>
+		<button type="button" class="touch-btn touch-view" data-view="pitchU" title="Tilt up">▲</button>
+		<button type="button" class="touch-btn touch-view" data-view="pitchD" title="Tilt down">▼</button>
+	</div>
+	<div class="touch-row">
+		<div class="touch-dpad">
+			<button type="button" class="touch-btn td-u" data-touch="ArrowUp" title="Z toward">▲Z</button>
+			<button type="button" class="touch-btn td-l" data-touch="ArrowLeft" title="Move left">◀</button>
+			<button type="button" class="touch-btn td-c" data-touch="s" title="Soft drop" style="font-size:12px">▽S</button>
+			<button type="button" class="touch-btn td-r" data-touch="ArrowRight" title="Move right">▶</button>
+		</div>
+		<div style="display:flex;flex-direction:column;gap:5px;align-items:center">
+			<button type="button" class="touch-btn" data-touch="ArrowDown" style="min-width:52px" title="Z away">▼Z</button>
+		</div>
+		<div class="touch-actions">
+			<button type="button" class="touch-btn" data-touch="z" title="Rotate CCW">⟲</button>
+			<button type="button" class="touch-btn" data-touch="x" title="Rotate CW">⟳</button>
+			<button type="button" class="touch-btn drop wide" data-touch=" " title="Hard drop">HARD DROP</button>
+			<button type="button" class="touch-btn menu" data-touch="Enter" title="Pause">PAUSE</button>
+			<button type="button" class="touch-btn menu" data-touch="a" title="Toggle AI">AI</button>
+		</div>
+	</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const COLS        = 8;
+const DEPTH       = 6;
+const VISIBLE_ROWS= 14;
+const HIDDEN_ROWS = 2;
+const ROWS        = VISIBLE_ROWS + HIDDEN_ROWS;
+const CELL_SIZE   = 1.0;
+const MAX_STACK   = 4;
+const AI_MOVE_FRAMES   = 6;
+const RESET_DELAY_MS   = 2500;
+const LINE_FLASH_FRAMES= 22;
+const DAS_DELAY   = 16;
+const DAS_REPEAT  = 6;
+
+const HIGH_SCORE_KEY = 'crystal-twins-3d-carats';
+const BEST_DEPTH_KEY = 'crystal-twins-3d-deepest';
+const LEARNING_KEY   = 'crystal-twins-3d-brain-v1';
+
+const RUBBLE_ID = 8;
+
+const MINERALS = [
+	{ name: 'Tourmaline',  key: 'tourmaline'     }, // 0 → I
+	{ name: 'Orthoclase',  key: 'orthoclase_l'   }, // 1 → L
+	{ name: 'Orthoclase',  key: 'orthoclase_j'   }, // 2 → J
+	{ name: 'Fluorite',    key: 'fluorite'        }, // 3 → O
+	{ name: 'Chrysoberyl', key: 'chrysoberyl_s'  }, // 4 → S
+	{ name: 'Staurolite',  key: 'staurolite'     }, // 5 → T
+	{ name: 'Chrysoberyl', key: 'chrysoberyl_z'  }, // 6 → Z
+];
+
+// Real geology: density g/cm³, Mohs, UCS MPa, cleavage 0-1, creep rate
+const MINERAL_PHYSICS = [
+	{ density:3.06, mohs:7.5, ucsMPa:280, cleavage:0.35, creepRate:0.002, name:'Tourmaline'  },
+	{ density:2.56, mohs:6.0, ucsMPa:125, cleavage:0.55, creepRate:0.006, name:'Orthoclase'  },
+	{ density:2.56, mohs:6.0, ucsMPa:125, cleavage:0.55, creepRate:0.006, name:'Orthoclase'  },
+	{ density:3.18, mohs:4.0, ucsMPa:48,  cleavage:0.92, creepRate:0.045, name:'Fluorite'    },
+	{ density:3.75, mohs:8.5, ucsMPa:390, cleavage:0.28, creepRate:0.001, name:'Chrysoberyl' },
+	{ density:3.76, mohs:7.0, ucsMPa:210, cleavage:0.48, creepRate:0.004, name:'Staurolite'  },
+	{ density:3.75, mohs:8.5, ucsMPa:390, cleavage:0.28, creepRate:0.001, name:'Chrysoberyl' },
+];
+const RUBBLE_PHYSICS = { density:2.35, mohs:3, ucsMPa:22, cleavage:1, creepRate:0.02, name:'Breccia' };
+
+const GEO = {
+	lithoMPaPer100m:    2.7,
+	cellHeightM:        0.048,
+	overburdenScale:    0.92,
+	pointLoadScale:     14,
+	shearScale:         0.62,
+	fluidPressureFactor:0.15,
+	geologyTickFrames:  40,
+	maxFracturePasses:  6,
+	shatterRatio:       0.78,
+	shatterCellThreshold: 0.86,
+	shatterStartRatio:  0.68,
+	catastrophicRatio:  1.05,
+};
+
+const GRAVITY_FRAMES = [
+	48,43,38,33,28,23,18,13,8,6,
+	5,5,5,4,4,4,3,3,3,2,
+	2,2,2,2,2,2,2,2,2,1,
+	1,1,1,1,1,1,1,1,1,1,
+];
+
+// Tetromino shapes (4 rotations each)
+const SHAPES = [
+	[ // 0 Tourmaline I
+		[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+		[[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]],
+		[[0,0,0,0],[0,0,0,0],[1,1,1,1],[0,0,0,0]],
+		[[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]],
+	],
+	[ // 1 Orthoclase L
+		[[0,0,1],[1,1,1],[0,0,0]],
+		[[0,1,0],[0,1,0],[0,1,1]],
+		[[0,0,0],[1,1,1],[1,0,0]],
+		[[1,1,0],[0,1,0],[0,1,0]],
+	],
+	[ // 2 Orthoclase J
+		[[1,0,0],[1,1,1],[0,0,0]],
+		[[0,1,1],[0,1,0],[0,1,0]],
+		[[0,0,0],[1,1,1],[0,0,1]],
+		[[0,1,0],[0,1,0],[1,1,0]],
+	],
+	[ // 3 Fluorite O
+		[[0,1,1],[0,1,1],[0,0,0]],
+	],
+	[ // 4 Chrysoberyl S
+		[[0,1,1],[1,1,0],[0,0,0]],
+		[[0,1,0],[0,1,1],[0,0,1]],
+		[[0,0,0],[0,1,1],[1,1,0]],
+		[[1,0,0],[1,1,0],[0,1,0]],
+	],
+	[ // 5 Staurolite T
+		[[0,1,0],[1,1,1],[0,0,0]],
+		[[0,1,0],[0,1,1],[0,1,0]],
+		[[0,0,0],[1,1,1],[0,1,0]],
+		[[0,1,0],[1,1,0],[0,1,0]],
+	],
+	[ // 6 Chrysoberyl Z
+		[[1,1,0],[0,1,1],[0,0,0]],
+		[[0,0,1],[0,1,1],[0,1,0]],
+		[[0,0,0],[1,1,0],[0,1,1]],
+		[[0,1,0],[1,1,0],[1,0,0]],
+	],
+];
+
+const SPAWN = [
+	{ y:0, x:2, z:2 }, // Tourmaline I
+	{ y:0, x:3, z:2 }, // Orthoclase L
+	{ y:0, x:3, z:2 }, // Orthoclase J
+	{ y:0, x:3, z:2 }, // Fluorite O
+	{ y:0, x:3, z:2 }, // Chrysoberyl S
+	{ y:0, x:3, z:2 }, // Staurolite T
+	{ y:0, x:3, z:2 }, // Chrysoberyl Z
+];
+
+// Per-type mineral colors (hex) for Three.js materials
+const MINERAL_COLORS_HEX = [
+	0x28d870, // 0 Tourmaline  - vivid green
+	0xe08858, // 1 Orthoclase L- salmon
+	0xe0dcc0, // 2 Orthoclase J- cream
+	0x9050f0, // 3 Fluorite    - violet
+	0xb8d840, // 4 Chrysoberyl S- yellow-green
+	0x7a4420, // 5 Staurolite  - brown
+	0xa0c028, // 6 Chrysoberyl Z- lime
+	0x605850, // 7 Rubble      - gray
+];
+const MINERAL_EMISSIVE = [
+	0x005820, // Tourmaline
+	0x5a0800, // Orthoclase L
+	0x302c18, // Orthoclase J
+	0x200060, // Fluorite
+	0x283000, // Chrysoberyl S
+	0x1a0800, // Staurolite
+	0x1e3800, // Chrysoberyl Z
+	0x080604, // Rubble
+];
+
+const MINERAL_HUES = [145, 15, 25, 275, 85, 30, 95]; // for particles
+
+const DEFAULT_WEIGHTS = {
+	linesCleared:  2500,
+	nearlyFull:    150,
+	aggHeight:    -25,
+	maxHeightSq:  -40,
+	holes:        -80,
+	bumpiness:    -8,
+	rowTransitions: 0,
+	topDanger:    -100000,
+	safeTop:       200,
+	topProximity: -50,
+	lookaheadScale: 0.45,
+	deadNext:     -12000,
+	memoryScale:   18,
+};
+
+// ─── DOM REFS ─────────────────────────────────────────────────────────────────
+const viewport        = document.getElementById('viewport');
+const scoreEl         = document.getElementById('score');
+const harvestEl       = document.getElementById('harvest');
+const depthEl         = document.getElementById('depth');
+const lithoEl         = document.getElementById('lithoPressure');
+const peakStressEl    = document.getElementById('peakStress');
+const stabilityEl     = document.getElementById('stability');
+const geologyStatusEl = document.getElementById('geologyStatus');
+const bestEl          = document.getElementById('best');
+const bestDepthEl     = document.getElementById('bestDepth');
+const nextLabelEl     = document.getElementById('nextLabel');
+const nextCanvas      = document.getElementById('next');
+const nextCtx2d       = nextCanvas.getContext('2d');
+const titleScreen     = document.getElementById('titleScreen');
+const pauseOverlay    = document.getElementById('pauseOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const goScoreEl       = document.getElementById('goScore');
+const overflowAlert   = document.getElementById('overflowAlert');
+const overflowMsg     = document.getElementById('overflowMsg');
+const learnPanel      = document.getElementById('learnPanel');
+const learnStat       = document.getElementById('learnStat');
+const learnLesson     = document.getElementById('learnLesson');
+const modeLabel       = document.getElementById('modeLabel');
+const controlsHelp    = document.getElementById('controlsHelp');
+
+// ─── AUDIO ────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+function ensureAudio() {
+	if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+	if (audioCtx?.state === 'suspended') audioCtx.resume();
+}
+function playLockThud() {
+	ensureAudio(); if (!audioCtx) return;
+	const t = audioCtx.currentTime;
+	const osc = audioCtx.createOscillator();
+	const gain = audioCtx.createGain();
+	const filt = audioCtx.createBiquadFilter();
+	osc.type = 'triangle';
+	osc.frequency.setValueAtTime(90, t);
+	osc.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+	filt.type = 'lowpass'; filt.frequency.value = 280;
+	osc.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination);
+	gain.gain.setValueAtTime(0.35, t);
+	gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+	osc.start(t); osc.stop(t + 0.15);
+	const noise = audioCtx.createBufferSource();
+	const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04 | 0, audioCtx.sampleRate);
+	const data = buf.getChannelData(0);
+	for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.4;
+	noise.buffer = buf;
+	const ng = audioCtx.createGain();
+	const nf = audioCtx.createBiquadFilter();
+	nf.type = 'lowpass'; nf.frequency.value = 400;
+	noise.connect(nf); nf.connect(ng); ng.connect(audioCtx.destination);
+	ng.gain.setValueAtTime(0.18, t);
+	ng.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+	noise.start(t); noise.stop(t + 0.05);
+}
+function playShatter(count) {
+	ensureAudio(); if (!audioCtx) return;
+	const t = audioCtx.currentTime;
+	const intensity = 0.08 + count * 0.03;
+	for (let i = 0; i < 4 + count; i++) {
+		const osc = audioCtx.createOscillator();
+		const gain = audioCtx.createGain();
+		osc.type = 'sine';
+		const freq = 1200 + Math.random() * 2800 + i * 120;
+		osc.frequency.setValueAtTime(freq, t + i * 0.012);
+		osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t + 0.2 + i * 0.01);
+		osc.connect(gain); gain.connect(audioCtx.destination);
+		gain.gain.setValueAtTime(intensity, t + i * 0.012);
+		gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25 + i * 0.01);
+		osc.start(t + i * 0.012); osc.stop(t + 0.3 + i * 0.01);
+	}
+	const nBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15 | 0, audioCtx.sampleRate);
+	const nd = nBuf.getChannelData(0);
+	for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+	const ns = audioCtx.createBufferSource(); ns.buffer = nBuf;
+	const ng = audioCtx.createGain();
+	const nf = audioCtx.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 2000;
+	ns.connect(nf); nf.connect(ng); ng.connect(audioCtx.destination);
+	ng.gain.setValueAtTime(0.12 + count * 0.04, t);
+	ng.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+	ns.start(t); ns.stop(t + 0.2);
+}
+function playFracture() {
+	ensureAudio(); if (!audioCtx) return;
+	const t = audioCtx.currentTime;
+	const osc = audioCtx.createOscillator();
+	const gain = audioCtx.createGain();
+	osc.type = 'sawtooth';
+	osc.frequency.setValueAtTime(180, t);
+	osc.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+	gain.gain.setValueAtTime(0.12, t);
+	gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+	osc.connect(gain); gain.connect(audioCtx.destination);
+	osc.start(t); osc.stop(t + 0.11);
+}
+
+// ─── BOARD HELPERS ────────────────────────────────────────────────────────────
+function createEmptyBoard() {
+	return Array.from({ length: ROWS }, () =>
+		Array.from({ length: DEPTH }, () => new Array(COLS).fill(0))
+	);
+}
+function createGeoGrid3D(fill = 0) {
+	return Array.from({ length: ROWS }, () =>
+		Array.from({ length: DEPTH }, () => new Array(COLS).fill(fill))
+	);
+}
+function cellAt(b, y, z, x) {
+	return (b && b[y] && b[y][z]) ? (b[y][z][x] || 0) : 0;
+}
+function setCell(b, y, z, x, v) { b[y][z][x] = v; }
+function cloneBoard3D(b) {
+	return b.map(layer => layer.map(row => row.slice()));
+}
+function layerFull(b, y) {
+	for (let z = 0; z < DEPTH; z++)
+		for (let x = 0; x < COLS; x++)
+			if (!cellAt(b, y, z, x)) return false;
+	return true;
+}
+function getShape(type, rot) { return SHAPES[type][rot % SHAPES[type].length]; }
+function nesRandomPiece() {
+	let r; do { r = (Math.random() * 8) | 0; } while (r === 7); return r;
+}
+function padScore(n) { return String(Math.min(999999, Math.max(0, n | 0))).padStart(6, '0'); }
+function formatCount(n) {
+	let v = Math.max(0, Number(n) || 0);
+	if (!Number.isFinite(v)) v = Number.MAX_SAFE_INTEGER;
+	return v.toLocaleString('en-US');
+}
+function formatDepth(lv) { return ((Math.max(0, lv | 0) + 1) * 100) + 'm'; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// World position: board (bx,by,bz) → THREE.Vector3
+function worldPos(bx, by, bz) {
+	return new THREE.Vector3(
+		(bx - (COLS  - 1) * 0.5) * CELL_SIZE,
+		((VISIBLE_ROWS - 1) * 0.5 - (by - HIDDEN_ROWS)) * CELL_SIZE,
+		(bz - (DEPTH - 1) * 0.5) * CELL_SIZE
+	);
+}
+
+// ─── THREE.JS SCENE ────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+viewport.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070b11);
+scene.fog = new THREE.FogExp2(0x070b11, 0.055);
+
+const camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 60);
+const CAM = {
+	yaw: 0.72,
+	pitch: 0.4,
+	dist: 15.5,
+	targetY: -0.5,
+	autoSpin: true,
+	userUntil: 0
+};
+const CAM_YAW_RATE = 0.0026;
+const CAM_PITCH_RATE = 0.002;
+const CAM_DRAG_SENS = 0.0055;
+let gpView = { yaw: 0, pitch: 0 };
+let viewDrag = { active: false, lastX: 0, lastY: 0, id: -1 };
+
+function applyCameraOrbit() {
+	const cosP = Math.cos(CAM.pitch);
+	camera.position.set(
+		CAM.dist * Math.sin(CAM.yaw) * cosP,
+		CAM.dist * Math.sin(CAM.pitch) + CAM.targetY,
+		CAM.dist * Math.cos(CAM.yaw) * cosP
+	);
+	camera.lookAt(0, CAM.targetY, 0);
+}
+applyCameraOrbit();
+
+function markCameraUserControl() {
+	CAM.userUntil = performance.now() + 5000;
+	CAM.autoSpin = false;
+}
+
+function initViewOrbitInput() {
+	const canvas = renderer.domElement;
+	canvas.style.touchAction = 'none';
+
+	const onViewPointerDown = (e) => {
+		if (e.button !== 0 && e.pointerType === 'mouse') return;
+		const overlayOpen = titleScreen.classList.contains('visible')
+			|| pauseOverlay.classList.contains('visible')
+			|| gameOverOverlay.classList.contains('visible');
+		if (overlayOpen && e.target !== canvas) return;
+		if (e.target !== canvas) return;
+		viewDrag.active = true;
+		viewDrag.lastX = e.clientX;
+		viewDrag.lastY = e.clientY;
+		viewDrag.id = e.pointerId;
+		markCameraUserControl();
+		canvas.classList.add('view-dragging');
+		try { canvas.setPointerCapture(e.pointerId); } catch {}
+	};
+
+	const onViewPointerMove = (e) => {
+		if (!viewDrag.active || e.pointerId !== viewDrag.id) return;
+		const dx = e.clientX - viewDrag.lastX;
+		const dy = e.clientY - viewDrag.lastY;
+		viewDrag.lastX = e.clientX;
+		viewDrag.lastY = e.clientY;
+		CAM.yaw -= dx * CAM_DRAG_SENS;
+		CAM.pitch = clamp(CAM.pitch + dy * CAM_DRAG_SENS, 0.12, 1.35);
+		applyCameraOrbit();
+	};
+
+	const endViewDrag = (e) => {
+		if (e.pointerId !== viewDrag.id) return;
+		viewDrag.active = false;
+		viewDrag.id = -1;
+		canvas.classList.remove('view-dragging');
+		try { canvas.releasePointerCapture(e.pointerId); } catch {}
+	};
+
+	canvas.addEventListener('pointerdown', onViewPointerDown);
+	canvas.addEventListener('pointermove', onViewPointerMove);
+	canvas.addEventListener('pointerup', endViewDrag);
+	canvas.addEventListener('pointercancel', endViewDrag);
+}
+
+// Lights
+scene.add(new THREE.AmbientLight(0x404862, 0.9));
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.1);
+sunLight.position.set(6, 12, 9);
+scene.add(sunLight);
+const crystalLight = new THREE.PointLight(0x6080ff, 1.4, 28);
+crystalLight.position.set(-4, 3, 6);
+scene.add(crystalLight);
+const fillLight = new THREE.PointLight(0xff8040, 0.6, 22);
+fillLight.position.set(5, -5, -3);
+scene.add(fillLight);
+
+// Cavern wireframe
+const cavernGeo = new THREE.BoxGeometry(COLS, VISIBLE_ROWS, DEPTH);
+const cavernEdges = new THREE.EdgesGeometry(cavernGeo);
+const cavernLines = new THREE.LineSegments(cavernEdges, new THREE.LineBasicMaterial({ color: 0x3a5068 }));
+scene.add(cavernLines);
+
+// Cavern floor grid lines
+const gridMat = new THREE.LineBasicMaterial({ color: 0x1e2a38, transparent: true, opacity: 0.5 });
+const gridGrp = new THREE.Group();
+const floorY = -((VISIBLE_ROWS - 1) * 0.5) * CELL_SIZE - 0.5;
+for (let x = 0; x <= COLS; x++) {
+	const wx = (x - COLS * 0.5) * CELL_SIZE;
+	const pts = [new THREE.Vector3(wx, floorY, -(DEPTH * 0.5)), new THREE.Vector3(wx, floorY, DEPTH * 0.5)];
+	gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
+}
+for (let z = 0; z <= DEPTH; z++) {
+	const wz = (z - DEPTH * 0.5) * CELL_SIZE;
+	const pts = [new THREE.Vector3(-(COLS * 0.5), floorY, wz), new THREE.Vector3(COLS * 0.5, floorY, wz)];
+	gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
+}
+scene.add(gridGrp);
+
+// Danger zone marker plane (top rows)
+const dangerMat = new THREE.MeshBasicMaterial({ color:0xc060a0, transparent:true, opacity:0.07, side:THREE.DoubleSide, depthWrite:false });
+const dangerGeom = new THREE.PlaneGeometry(COLS, DEPTH);
+const dangerPlane = new THREE.Mesh(dangerGeom, dangerMat);
+dangerPlane.rotation.x = -Math.PI / 2;
+// y position: top of danger zone = board row MAX_STACK (visible), worldY
+const dangerWorldY = ((VISIBLE_ROWS - 1) * 0.5 - (MAX_STACK - HIDDEN_ROWS)) * CELL_SIZE;
+dangerPlane.position.set(0, dangerWorldY, 0);
+scene.add(dangerPlane);
+
+// Box geometry shared by all block types
+const boxGeo = new THREE.BoxGeometry(0.91, 0.91, 0.91);
+
+// Per-type materials for locked board cells
+const typeMats = MINERAL_COLORS_HEX.map((color, i) =>
+	new THREE.MeshPhongMaterial({ color, emissive: MINERAL_EMISSIVE[i], shininess: 75 })
+);
+
+const MAX_BOARD_INST = ROWS * DEPTH * COLS + 8;
+// One InstancedMesh per mineral type (0-7, where 7 = rubble)
+const typeMeshes = typeMats.map(mat => {
+	const m = new THREE.InstancedMesh(boxGeo, mat, MAX_BOARD_INST);
+	m.count = 0;
+	scene.add(m);
+	return m;
+});
+
+// Stress overlay InstancedMesh (semi-transparent orange-red, depth over stressed cells)
+const stressMat = new THREE.MeshPhongMaterial({
+	color: 0xff3010, emissive: 0x880000, transparent: true, opacity: 0.42, depthWrite: false
+});
+const stressMesh = new THREE.InstancedMesh(boxGeo, stressMat, MAX_BOARD_INST);
+stressMesh.count = 0;
+stressMesh.renderOrder = 1;
+scene.add(stressMesh);
+
+// Active piece group - up to 4 cells
+const activeMat = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x404040, shininess: 110 });
+const activeCells = Array.from({ length: 4 }, () => {
+	const m = new THREE.Mesh(boxGeo, activeMat.clone());
+	m.visible = false;
+	scene.add(m);
+	return m;
+});
+
+// Ghost piece group
+const ghostMat = new THREE.MeshPhongMaterial({
+	color: 0x8090d0, transparent: true, opacity: 0.22, depthWrite: false
+});
+const ghostCells = Array.from({ length: 4 }, () => {
+	const m = new THREE.Mesh(boxGeo, ghostMat);
+	m.visible = false;
+	m.renderOrder = 2;
+	scene.add(m);
+	return m;
+});
+
+// Flash line overlay (during line clear animation)
+const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false });
+const flashMesh = new THREE.InstancedMesh(boxGeo, flashMat, DEPTH * COLS * 4);
+flashMesh.count = 0;
+flashMesh.renderOrder = 3;
+scene.add(flashMesh);
+
+const dummy = new THREE.Object3D();
+
+// ─── PARTICLE SYSTEM ──────────────────────────────────────────────────────────
+const MAX_PARTICLES = 800;
+const partPos   = new Float32Array(MAX_PARTICLES * 3);
+const partColor = new Float32Array(MAX_PARTICLES * 3);
+const partGeo = new THREE.BufferGeometry();
+partGeo.setAttribute('position', new THREE.BufferAttribute(partPos,   3));
+partGeo.setAttribute('color',    new THREE.BufferAttribute(partColor, 3));
+partGeo.setDrawRange(0, 0);
+const partMat = new THREE.PointsMaterial({ size: 0.18, vertexColors: true, transparent: true, sizeAttenuation: true, depthWrite: false });
+const partSystem = new THREE.Points(partGeo, partMat);
+scene.add(partSystem);
+
+let particles = [];
+
+function spawnParticle(p) {
+	if (particles.length >= MAX_PARTICLES - 1) return;
+	particles.push(p);
+}
+function spawnLayerParticles(rows) {
+	for (const y of rows) {
+		for (let z = 0; z < DEPTH; z++) {
+			for (let x = 0; x < COLS; x++) {
+				const id = cellAt(board, y, z, x);
+				if (!id) continue;
+				const hue = (id === RUBBLE_ID) ? 30 : (MINERAL_HUES[id - 1] || 200);
+				const wp = worldPos(x, y, z);
+				for (let i = 0; i < 3; i++) {
+					spawnParticle({
+						x: wp.x + (Math.random() - 0.5) * 0.6,
+						y: wp.y + (Math.random() - 0.5) * 0.6,
+						z: wp.z + (Math.random() - 0.5) * 0.6,
+						vx: (Math.random() - 0.5) * 0.12,
+						vy: 0.06 + Math.random() * 0.18,
+						vz: (Math.random() - 0.5) * 0.12,
+						life: 28 + (Math.random() * 22 | 0),
+						maxLife: 50,
+						hue,
+					});
+				}
+			}
+		}
+	}
+}
+function spawnFractureParticles(cells, mineralId) {
+	const hue = (mineralId === RUBBLE_ID) ? 30 : (MINERAL_HUES[mineralId - 1] || 200);
+	for (const c of cells) {
+		if (c.y < HIDDEN_ROWS || c.y >= ROWS) continue;
+		const wp = worldPos(c.x, c.y, c.z);
+		for (let i = 0; i < 4; i++) {
+			spawnParticle({
+				x: wp.x + (Math.random() - 0.5) * 0.4,
+				y: wp.y,
+				z: wp.z + (Math.random() - 0.5) * 0.4,
+				vx: (Math.random() - 0.5) * 0.14,
+				vy: 0.03 + Math.random() * 0.14,
+				vz: (Math.random() - 0.5) * 0.14,
+				life: 18 + (Math.random() * 14 | 0),
+				maxLife: 32,
+				hue,
+			});
+		}
+	}
+}
+function updateParticles(dtF) {
+	const tmpC = new THREE.Color();
+	for (let i = particles.length - 1; i >= 0; i--) {
+		const p = particles[i];
+		p.x += p.vx * dtF;
+		p.y += p.vy * dtF;
+		p.z += p.vz * dtF;
+		p.vy -= 0.009 * dtF;
+		p.life -= dtF;
+		if (p.life <= 0) { particles.splice(i, 1); }
+	}
+	const n = Math.min(particles.length, MAX_PARTICLES);
+	for (let i = 0; i < n; i++) {
+		const p = particles[i];
+		partPos[i * 3]     = p.x;
+		partPos[i * 3 + 1] = p.y;
+		partPos[i * 3 + 2] = p.z;
+		const alpha = p.life / p.maxLife;
+		tmpC.setHSL(p.hue / 360, 0.7, clamp(0.65 * alpha, 0, 1));
+		partColor[i * 3]     = tmpC.r;
+		partColor[i * 3 + 1] = tmpC.g;
+		partColor[i * 3 + 2] = tmpC.b;
+	}
+	partGeo.setDrawRange(0, n);
+	if (n > 0) {
+		partGeo.attributes.position.needsUpdate = true;
+		partGeo.attributes.color.needsUpdate    = true;
+	}
+}
+
+// ─── GEOLOGY SYSTEM ────────────────────────────────────────────────────────────
+let board, stressGrid, shearGrid, integrityGrid, pieceGrid;
+let lockedPieces = new Map();
+let nextPieceId  = 1;
+let geologyFrame = 0;
+let geoSummary   = { litho:0, peak:0, stability:100, peakRatio:0, unstable:0 };
+let needsThreeUpdate = true;
+
+function initGeologyGrids() {
+	stressGrid    = createGeoGrid3D(0);
+	shearGrid     = createGeoGrid3D(0);
+	integrityGrid = createGeoGrid3D(1);
+	pieceGrid     = createGeoGrid3D(0);
+}
+function getMineralPhysics(id) {
+	if (id === RUBBLE_ID) return RUBBLE_PHYSICS;
+	if (id >= 1 && id <= 7) return MINERAL_PHYSICS[id - 1];
+	return null;
+}
+function lithostaticMPa() { return ((level | 0) + 1) * GEO.lithoMPaPer100m; }
+function cellKey3D(c) { return `${c.x},${c.y},${c.z}`; }
+
+function clearPieceFromGrid(pieceId) {
+	const piece = lockedPieces.get(pieceId); if (!piece) return;
+	for (const c of piece.cells) {
+		setCell(board,         c.y, c.z, c.x, 0);
+		setCell(pieceGrid,     c.y, c.z, c.x, 0);
+		if (stressGrid[c.y]?.[c.z]) stressGrid[c.y][c.z][c.x] = 0;
+		if (shearGrid[c.y]?.[c.z])  shearGrid[c.y][c.z][c.x]  = 0;
+	}
+}
+function writePieceToGrid(pieceId) {
+	const piece = lockedPieces.get(pieceId); if (!piece) return;
+	for (const c of piece.cells) {
+		if (c.y < 0 || c.y >= ROWS || c.x < 0 || c.x >= COLS || c.z < 0 || c.z >= DEPTH) continue;
+		setCell(board,         c.y, c.z, c.x, piece.mineralId);
+		setCell(pieceGrid,     c.y, c.z, c.x, pieceId);
+		integrityGrid[c.y][c.z][c.x] = piece.integrity;
+	}
+}
+function rebuildBoardFromPieces() {
+	board     = createEmptyBoard();
+	pieceGrid = createGeoGrid3D(0);
+	for (const pid of lockedPieces.keys()) writePieceToGrid(pid);
+}
+function registerLockedPiece(mineralId, crystalType, cells, integrity = 1) {
+	const pieceId = nextPieceId++;
+	const piece = {
+		mineralId, crystalType,
+		integrity: clamp(integrity, 0.2, 1),
+		cells: cells.map(c => ({ x: c.x, y: c.y, z: c.z })),
+	};
+	lockedPieces.set(pieceId, piece);
+	writePieceToGrid(pieceId);
+	return pieceId;
+}
+
+function pieceMaxY(pid) {
+	const p = lockedPieces.get(pid);
+	return (!p || !p.cells.length) ? -1 : Math.max(...p.cells.map(c => c.y));
+}
+function isPieceSupported(pid) {
+	const p = lockedPieces.get(pid); if (!p) return true;
+	for (const c of p.cells) {
+		if (c.y >= ROWS - 1) return true;
+		const ny = c.y + 1;
+		const belowId = cellAt(pieceGrid, ny, c.z, c.x);
+		if (cellAt(board, ny, c.z, c.x) && belowId !== pid) return true;
+	}
+	return false;
+}
+function canPieceMoveDown(pid) {
+	const p = lockedPieces.get(pid); if (!p) return false;
+	for (const c of p.cells) {
+		const ny = c.y + 1; if (ny >= ROWS) return false;
+		if (cellAt(board, ny, c.z, c.x) && cellAt(pieceGrid, ny, c.z, c.x) !== pid) return false;
+	}
+	return true;
+}
+function movePieceDownOne(pid) {
+	const p = lockedPieces.get(pid); if (!p) return;
+	clearPieceFromGrid(pid);
+	for (const c of p.cells) c.y++;
+	writePieceToGrid(pid);
+}
+function applyRigidPieceGravity() {
+	let any = false, moved = true, guard = 0;
+	while (moved && guard++ < ROWS * 3) {
+		moved = false;
+		const ids = [...lockedPieces.keys()].sort((a, b) => pieceMaxY(b) - pieceMaxY(a));
+		for (const pid of ids) {
+			if (!lockedPieces.has(pid) || isPieceSupported(pid) || !canPieceMoveDown(pid)) continue;
+			movePieceDownOne(pid); moved = true; any = true;
+		}
+	}
+	return any;
+}
+
+function columnSurfaceY(x, z) {
+	for (let y = 0; y < ROWS; y++) if (cellAt(board, y, z, x)) return y;
+	return ROWS;
+}
+function effectiveStressAt(y, z, x) {
+	const id = cellAt(board, y, z, x); if (!id) return 0;
+	const phys = getMineralPhysics(id); if (!phys) return 0;
+	const normal = (stressGrid[y]?.[z]?.[x]) || 0;
+	const shear  = ((shearGrid[y]?.[z]?.[x]) || 0) * phys.cleavage;
+	const fluid  = lithostaticMPa() * GEO.fluidPressureFactor * (1 - phys.cleavage * 0.3);
+	return normal + shear + fluid;
+}
+
+function recomputeStressField() {
+	if (!stressGrid || stressGrid.length !== ROWS) initGeologyGrids();
+	const P0 = lithostaticMPa();
+	for (let y = 0; y < ROWS; y++)
+		for (let z = 0; z < DEPTH; z++) {
+			stressGrid[y][z].fill(0);
+			shearGrid[y][z].fill(0);
+		}
+	for (let z = 0; z < DEPTH; z++) {
+		for (let x = 0; x < COLS; x++) {
+			let ob = P0;
+			for (let y = ROWS - 1; y >= 0; y--) {
+				const id = cellAt(board, y, z, x); if (!id) continue;
+				stressGrid[y][z][x] = ob;
+				const phys = getMineralPhysics(id);
+				ob += phys.density * GEO.overburdenScale * GEO.cellHeightM;
+			}
+		}
+	}
+	applyShearStress3D();
+}
+function applyShearStress3D() {
+	// X-direction shear
+	for (let z = 0; z < DEPTH; z++) {
+		for (let x = 0; x < COLS - 1; x++) {
+			const h1 = columnSurfaceY(x, z), h2 = columnSurfaceY(x + 1, z);
+			const dh = h1 - h2; if (Math.abs(dh) < 2) continue;
+			const sMPa = Math.abs(dh) * GEO.shearScale + lithostaticMPa() * 0.07;
+			const wx = dh > 0 ? x + 1 : x;
+			const y0 = Math.min(h1, h2); if (y0 >= ROWS) continue;
+			shearGrid[y0][z][wx] = (shearGrid[y0][z][wx] || 0) + sMPa;
+			if (y0 + 1 < ROWS && cellAt(board, y0 + 1, z, wx))
+				shearGrid[y0 + 1][z][wx] = (shearGrid[y0 + 1][z][wx] || 0) + sMPa * 0.45;
+		}
+	}
+	// Z-direction shear
+	for (let x = 0; x < COLS; x++) {
+		for (let z = 0; z < DEPTH - 1; z++) {
+			const h1 = columnSurfaceY(x, z), h2 = columnSurfaceY(x, z + 1);
+			const dh = h1 - h2; if (Math.abs(dh) < 2) continue;
+			const sMPa = Math.abs(dh) * GEO.shearScale + lithostaticMPa() * 0.07;
+			const wz = dh > 0 ? z + 1 : z;
+			const y0 = Math.min(h1, h2); if (y0 >= ROWS) continue;
+			shearGrid[y0][wz][x] = (shearGrid[y0][wz][x] || 0) + sMPa;
+		}
+	}
+}
+function applyPointLoads() {
+	for (let y = 0; y < ROWS - 1; y++) {
+		for (let z = 0; z < DEPTH; z++) {
+			for (let x = 0; x < COLS; x++) {
+				const upId = cellAt(board, y, z, x), loId = cellAt(board, y + 1, z, x);
+				if (!upId || !loId) continue;
+				if (cellAt(pieceGrid, y, z, x) && cellAt(pieceGrid, y, z, x) === cellAt(pieceGrid, y + 1, z, x)) continue;
+				const up = getMineralPhysics(upId), lo = getMineralPhysics(loId);
+				const dRho = up.density - lo.density; if (dRho <= 0.2) continue;
+				stressGrid[y + 1][z][x] += dRho * up.density * GEO.pointLoadScale * (0.5 + lo.cleavage * 0.5);
+			}
+		}
+	}
+}
+function assessGeologySummary() {
+	let peak = 0, peakRatio = 0, unstable = 0, sumR = 0, cnt = 0;
+	for (let y = 0; y < ROWS; y++) for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) {
+		const id = cellAt(board, y, z, x); if (!id) continue;
+		const phys = getMineralPhysics(id);
+		const eff = effectiveStressAt(y, z, x);
+		const ratio = eff / phys.ucsMPa;
+		sumR += ratio; cnt++;
+		if (eff > peak) peak = eff;
+		if (ratio > peakRatio) peakRatio = ratio;
+		if (ratio > 0.78) unstable++;
+	}
+	const avgR = cnt ? sumR / cnt : 0;
+	geoSummary = {
+		litho: lithostaticMPa(), peak, peakRatio, unstable,
+		stability: Math.max(0, Math.min(100, Math.round(100 - avgR * 55 - unstable * 4))),
+	};
+}
+
+function findConnectedGroups(cells) {
+	if (!cells.length) return [];
+	const byKey = new Map(cells.map(c => [cellKey3D(c), c]));
+	const visited = new Set(), groups = [];
+	for (const start of cells) {
+		const sk = cellKey3D(start);
+		if (visited.has(sk)) continue;
+		const group = [], queue = [start]; visited.add(sk);
+		while (queue.length) {
+			const c = queue.shift(); group.push(c);
+			for (const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) {
+				const nk = `${c.x+dx},${c.y+dy},${c.z+dz}`;
+				if (byKey.has(nk) && !visited.has(nk)) { visited.add(nk); queue.push(byKey.get(nk)); }
+			}
+		}
+		groups.push(group);
+	}
+	return groups;
+}
+
+function setGeologyStatus(msg) { if (geologyStatusEl) geologyStatusEl.textContent = msg; }
+
+function shatterPieceUnderLoad(pid) {
+	const piece = lockedPieces.get(pid); if (!piece || !piece.cells.length) return false;
+	const phys = getMineralPhysics(piece.mineralId);
+	const limit = phys.ucsMPa * Math.max(0.35, piece.integrity);
+	const clMod = 0.7 + phys.cleavage * 0.3;
+	const shLimit = limit * GEO.shatterCellThreshold * clMod;
+	const cellData = piece.cells.map(c => {
+		const eff = effectiveStressAt(c.y, c.z, c.x);
+		return { ...c, eff, ratio: eff / phys.ucsMPa };
+	});
+	const peakEff = Math.max(...cellData.map(d => d.eff));
+	const avgRatio = cellData.reduce((s, d) => s + d.ratio, 0) / cellData.length;
+
+	if (piece.mineralId === RUBBLE_ID && piece.cells.length === 1 && peakEff > limit * 0.9) {
+		spawnFractureParticles(piece.cells, piece.mineralId);
+		clearPieceFromGrid(pid); lockedPieces.delete(pid); playFracture();
+		setGeologyStatus('Breccia pulverized under load');
+		return true;
+	}
+
+	const overstressed = new Set(cellData.filter(d => d.eff > shLimit || d.ratio > GEO.shatterRatio).map(d => cellKey3D(d)));
+	let ejected  = cellData.filter(d =>  overstressed.has(cellKey3D(d))).map(d => ({ x:d.x, y:d.y, z:d.z }));
+	let surviving= cellData.filter(d => !overstressed.has(cellKey3D(d))).map(d => ({ x:d.x, y:d.y, z:d.z }));
+	const underLoad = peakEff > limit * GEO.shatterStartRatio || avgRatio > GEO.shatterRatio - 0.06 || ejected.length > 0;
+	if (!underLoad) return false;
+
+	if (peakEff > limit && ejected.length === 0) {
+		const sorted = [...cellData].sort((a, b) => b.eff - a.eff);
+		const shedN = peakEff > limit * GEO.catastrophicRatio
+			? Math.max(1, Math.ceil(sorted.length * 0.55))
+			: Math.max(1, Math.ceil(sorted.length * (0.2 + phys.cleavage * 0.25)));
+		ejected   = sorted.slice(0, shedN).map(d => ({ x:d.x, y:d.y, z:d.z }));
+		surviving = sorted.slice(shedN).map(d => ({ x:d.x, y:d.y, z:d.z }));
+	}
+	const catastrophic = peakEff > limit * GEO.catastrophicRatio || ejected.length >= piece.cells.length;
+
+	spawnFractureParticles(catastrophic ? piece.cells : ejected, piece.mineralId);
+	playShatter(Math.min(4, 1 + (catastrophic ? piece.cells.length : ejected.length)));
+
+	clearPieceFromGrid(pid); lockedPieces.delete(pid);
+
+	if (catastrophic) {
+		for (const c of piece.cells) registerLockedPiece(RUBBLE_ID, piece.crystalType, [c], 0.3);
+		setGeologyStatus(phys.name + ' twin catastrophically shattered');
+		return true;
+	}
+	for (const c of ejected) registerLockedPiece(RUBBLE_ID, piece.crystalType, [c], 0.32);
+	for (const g of findConnectedGroups(surviving)) {
+		const fi = piece.integrity * (0.5 + Math.min(0.4, g.length * 0.08));
+		registerLockedPiece(piece.mineralId, piece.crystalType, g, fi);
+	}
+	setGeologyStatus(phys.name + ' shattered: ' + ejected.length + ' shard(s)');
+	return true;
+}
+
+function resolveStressFailures() {
+	let any = false;
+	for (const pid of [...lockedPieces.keys()]) {
+		if (!lockedPieces.has(pid)) continue;
+		if (shatterPieceUnderLoad(pid)) any = true;
+	}
+	return any;
+}
+function tickGeologyCreep() {
+	let crept = false;
+	for (const pid of [...lockedPieces.keys()]) {
+		const piece = lockedPieces.get(pid); if (!piece) continue;
+		const phys = getMineralPhysics(piece.mineralId);
+		if (phys.creepRate <= 0) continue;
+		let peakRatio = 0;
+		for (const c of piece.cells) {
+			const ratio = effectiveStressAt(c.y, c.z, c.x) / phys.ucsMPa;
+			if (ratio > peakRatio) peakRatio = ratio;
+		}
+		if (peakRatio < 0.5) continue;
+		piece.integrity -= phys.creepRate * peakRatio;
+		for (const c of piece.cells) integrityGrid[c.y][c.z][c.x] = piece.integrity;
+		if (piece.integrity <= 0 || (peakRatio > GEO.shatterRatio && piece.cells.length > 1)) {
+			shatterPieceUnderLoad(pid); crept = true;
+		}
+	}
+	return crept;
+}
+function applyGeologyPhysics() {
+	if (!board || !stressGrid) return false;
+	recomputeStressField(); applyPointLoads();
+	let changed = false;
+	for (let pass = 0; pass < GEO.maxFracturePasses; pass++) {
+		if (!resolveStressFailures()) break;
+		changed = true;
+		applyRigidPieceGravity(); recomputeStressField(); applyPointLoads();
+	}
+	if (changed) applyRigidPieceGravity();
+	assessGeologySummary(); updateGeologyUI();
+	if (changed && gameState === State.PLAYING) checkGeologyHarvest();
+	needsThreeUpdate = true;
+	return changed;
+}
+function checkGeologyHarvest() {
+	const rows = [];
+	for (let y = 0; y < ROWS; y++) if (layerFull(board, y)) rows.push(y);
+	if (!rows.length) return false;
+	lineFlashRows = rows;
+	spawnLayerParticles(rows);
+	playShatter(rows.length);
+	gameState = State.LINE_CLEAR;
+	lineFlashTimer = LINE_FLASH_FRAMES;
+	return true;
+}
+function tickGeologySimulation() {
+	if (!board || gameState !== State.PLAYING) return;
+	geologyFrame++;
+	if (geologyFrame < GEO.geologyTickFrames) return;
+	geologyFrame = 0;
+	recomputeStressField(); applyPointLoads();
+	const crept = tickGeologyCreep();
+	if (crept) { applyRigidPieceGravity(); applyGeologyPhysics(); checkGeologyHarvest(); }
+}
+function applyRowHarvestToPieces(clearedRows) {
+	const sorted = [...clearedRows].sort((a, b) => a - b);
+	for (const [pid, piece] of lockedPieces) {
+		const kept = [];
+		for (const c of piece.cells) {
+			if (sorted.includes(c.y)) continue;
+			let ny = c.y;
+			for (const r of sorted) if (r < c.y) ny--;
+			kept.push({ x: c.x, y: ny, z: c.z });
+		}
+		if (!kept.length) lockedPieces.delete(pid);
+		else piece.cells = kept;
+	}
+	rebuildBoardFromPieces();
+}
+function updateGeologyUI() {
+	if (!lithoEl) return;
+	lithoEl.textContent   = geoSummary.litho.toFixed(1) + ' MPa';
+	peakStressEl.textContent = geoSummary.peak.toFixed(1) + ' MPa';
+	stabilityEl.textContent  = geoSummary.stability + '%';
+	const r = geoSummary.peakRatio;
+	stabilityEl.style.color = r > 1 ? '#f08090' : r > 0.75 ? '#e8c070' : '#e8f4ff';
+}
+function geologyScorePenalty(b) {
+	if (!b) return 0;
+	let peakRatio = 0, unstable = 0;
+	const P0 = lithostaticMPa();
+	for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) {
+		let ob = P0;
+		for (let y = ROWS - 1; y >= 0; y--) {
+			const id = cellAt(b, y, z, x); if (!id) continue;
+			const phys = getMineralPhysics(id);
+			const ratio = ob / phys.ucsMPa;
+			if (ratio > peakRatio) peakRatio = ratio;
+			if (ratio > 0.78) unstable++;
+			ob += phys.density * GEO.overburdenScale * GEO.cellHeightM;
+		}
+	}
+	return peakRatio * 900 + unstable * 350;
+}
+
+// ─── LEARNING BRAIN ────────────────────────────────────────────────────────────
+function topStackRow3D(b) {
+	if (!b) return ROWS;
+	for (let y = 0; y < ROWS; y++)
+		for (let z = 0; z < DEPTH; z++)
+			for (let x = 0; x < COLS; x++)
+				if (cellAt(b, y, z, x)) return y;
+	return ROWS;
+}
+function boardFeatures3D(b) {
+	if (!b || b.length < ROWS)
+		return { aggHeight:0, maxHeight:0, topRow:ROWS, holes:0, bumpiness:0, nearlyFull:0 };
+	const nc = COLS * DEPTH;
+	const heights = new Array(nc).fill(0);
+	let holes = 0;
+	for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) {
+		let found = false;
+		for (let y = 0; y < ROWS; y++) {
+			const filled = cellAt(b, y, z, x) !== 0;
+			if (filled && !found) { heights[z * COLS + x] = ROWS - y; found = true; }
+			else if (found && !filled) holes++;
+		}
+	}
+	let bumpiness = 0;
+	for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS - 1; x++)
+		bumpiness += Math.abs(heights[z * COLS + x] - heights[z * COLS + x + 1]);
+	for (let x = 0; x < COLS; x++) for (let z = 0; z < DEPTH - 1; z++)
+		bumpiness += Math.abs(heights[z * COLS + x] - heights[(z+1) * COLS + x]);
+	const aggHeight = heights.reduce((a, c) => a + c, 0);
+	const maxHeight = heights.reduce((a, c) => Math.max(a, c), 0);
+	const topRow = topStackRow3D(b);
+	let nearlyFull = 0;
+	const total = COLS * DEPTH;
+	for (let y = 0; y < ROWS; y++) {
+		let cnt = 0;
+		for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) if (cellAt(b, y, z, x)) cnt++;
+		if (cnt >= total - 2) nearlyFull++;
+	}
+	return { aggHeight, maxHeight, topRow, holes, bumpiness, nearlyFull };
+}
+
+// Flat board helpers for AI performance
+function boardToFlat(b) {
+	const flat = new Uint8Array(ROWS * DEPTH * COLS);
+	for (let y = 0; y < ROWS; y++) for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++)
+		if (b[y][z][x]) flat[y * DEPTH * COLS + z * COLS + x] = 1;
+	return flat;
+}
+function flatAt(f, y, z, x) { return f[y * DEPTH * COLS + z * COLS + x]; }
+function flatSet(f, y, z, x, v) { f[y * DEPTH * COLS + z * COLS + x] = v; }
+
+function validFlat(f, type, rot, x, y, z) {
+	if (!f || z < 0 || z >= DEPTH) return false;
+	const shape = getShape(type, rot);
+	for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
+		if (!shape[r][c]) continue;
+		const px = x + c, py = y + r;
+		if (px < 0 || px >= COLS || py >= ROWS) return false;
+		if (py >= 0 && flatAt(f, py, z, px)) return false;
+	}
+	return true;
+}
+function dropYFlat(f, type, rot, x, y0, z) {
+	let y = y0;
+	while (validFlat(f, type, rot, x, y + 1, z)) y++;
+	return y;
+}
+function boardFeaturesFlat(f) {
+	const nc = COLS * DEPTH;
+	const heights = new Array(nc).fill(0);
+	let holes = 0;
+	for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) {
+		let found = false;
+		for (let y = 0; y < ROWS; y++) {
+			const filled = flatAt(f, y, z, x) !== 0;
+			if (filled && !found) { heights[z * COLS + x] = ROWS - y; found = true; }
+			else if (found && !filled) holes++;
+		}
+	}
+	let bumpiness = 0;
+	for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS - 1; x++)
+		bumpiness += Math.abs(heights[z * COLS + x] - heights[z * COLS + x + 1]);
+	for (let x = 0; x < COLS; x++) for (let z = 0; z < DEPTH - 1; z++)
+		bumpiness += Math.abs(heights[z * COLS + x] - heights[(z+1) * COLS + x]);
+	const aggHeight = heights.reduce((a, c) => a + c, 0);
+	const maxHeight = heights.reduce((a, c) => Math.max(a, c), 0);
+	let topRow = ROWS;
+	outer: for (let y = 0; y < ROWS; y++) for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++)
+		if (flatAt(f, y, z, x)) { topRow = y; break outer; }
+	let nearlyFull = 0;
+	const total = COLS * DEPTH;
+	for (let y = 0; y < ROWS; y++) {
+		let cnt = 0;
+		for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) if (flatAt(f, y, z, x)) cnt++;
+		if (cnt >= total - 2) nearlyFull++;
+	}
+	return { aggHeight, maxHeight, topRow, holes, bumpiness, nearlyFull };
+}
+function scoreEvalFlat(f, cleared, w) {
+	const ff = boardFeaturesFlat(f);
+	let s = cleared * w.linesCleared + ff.nearlyFull * w.nearlyFull
+		+ ff.aggHeight * w.aggHeight + ff.maxHeight * ff.maxHeight * w.maxHeightSq
+		+ ff.holes * w.holes + ff.bumpiness * w.bumpiness;
+	if (ff.topRow < MAX_STACK && cleared === 0) s += w.topDanger;
+	if (ff.topRow > MAX_STACK) s += w.safeTop;
+	return s;
+}
+
+function allPlacementsFlat(f, type, limitZ) {
+	const out = [];
+	const sp = SPAWN[type], maxRot = SHAPES[type].length;
+	const zList = limitZ ? [sp.z] : Array.from({ length: DEPTH }, (_, i) => i);
+	for (let rot = 0; rot < maxRot; rot++) {
+		for (const z of zList) {
+			for (let x = -1; x < COLS; x++) {
+				if (!validFlat(f, type, rot, x, sp.y, z)) continue;
+				const y = dropYFlat(f, type, rot, x, sp.y, z);
+				if (!validFlat(f, type, rot, x, y, z)) continue;
+				const sim = f.slice();
+				const shape = getShape(type, rot);
+				for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
+					if (!shape[r][c]) continue;
+					const py = y + r, px = x + c;
+					if (py >= 0 && py < ROWS && px >= 0 && px < COLS) flatSet(sim, py, z, px, 1);
+				}
+				let cleared = 0;
+				for (let i = ROWS - 1; i >= 0; i--) {
+					let full = true;
+					for_z: for (let iz = 0; iz < DEPTH; iz++) for (let ix = 0; ix < COLS; ix++) if (!flatAt(sim, i, iz, ix)) { full = false; break for_z; }
+					if (full) {
+						for (let iy = i; iy > 0; iy--)
+							for (let iz = 0; iz < DEPTH; iz++) for (let ix = 0; ix < COLS; ix++)
+								flatSet(sim, iy, iz, ix, flatAt(sim, iy - 1, iz, ix));
+						for (let iz = 0; iz < DEPTH; iz++) for (let ix = 0; ix < COLS; ix++) flatSet(sim, 0, iz, ix, 0);
+						cleared++; i++;
+					}
+				}
+				out.push({ rot, x, y, z, board: sim, cleared });
+			}
+		}
+	}
+	return out;
+}
+
+class LearningBrain {
+	constructor() { this.load(); }
+	load() {
+		try {
+			const raw = localStorage.getItem(LEARNING_KEY);
+			if (!raw) { this.resetBrain(); return; }
+			const d = JSON.parse(raw);
+			this.weights = { ...DEFAULT_WEIGHTS, ...d.weights };
+			this.memory = d.memory || {}; this.moves = d.moves || 0; this.games = d.games || 0;
+			this.lastLesson = d.lastLesson || 'Ready';
+		} catch { this.resetBrain(); }
+	}
+	resetBrain() {
+		this.weights = { ...DEFAULT_WEIGHTS }; this.memory = {};
+		this.moves = 0; this.games = 0; this.lastLesson = 'Surveying the vein';
+	}
+	save() {
+		try { localStorage.setItem(LEARNING_KEY, JSON.stringify({ weights: this.weights, memory: this.memory, moves: this.moves, games: this.games, lastLesson: this.lastLesson })); } catch {}
+	}
+	stateKey(board, type) {
+		const f = boardFeatures3D(board);
+		const t = f.topRow >= ROWS ? 9 : Math.min(9, f.topRow >> 1);
+		const h = Math.min(9, f.holes);
+		return `${type}|${t}|${h}`;
+	}
+	recall(board, type, x, z, rot) {
+		const e = this.memory[this.stateKey(board, type)]?.[`${x},${z},${rot}`];
+		if (!e || e.n < 1) return 0;
+		return (e.sum / e.n) * this.weights.memoryScale;
+	}
+	remember(board, type, x, z, rot, reward) {
+		const sk = this.stateKey(board, type), mk = `${x},${z},${rot}`;
+		if (!this.memory[sk]) this.memory[sk] = {};
+		if (!this.memory[sk][mk]) this.memory[sk][mk] = { sum: 0, n: 0 };
+		this.memory[sk][mk].sum += reward; this.memory[sk][mk].n++;
+		const keys = Object.keys(this.memory);
+		if (keys.length > 400) {
+			keys.sort((a, b) => Object.values(this.memory[a]).reduce((s, e) => s + e.n, 0) - Object.values(this.memory[b]).reduce((s, e) => s + e.n, 0));
+			for (let i = 0; i < keys.length - 320; i++) delete this.memory[keys[i]];
+		}
+	}
+	learn(reward, beforeBoard, afterBoard, type, move) {
+		this.moves++;
+		const before = boardFeatures3D(beforeBoard), after = boardFeatures3D(afterBoard);
+		const lr = 0.15 / (1 + this.moves * 0.000015);
+		if (reward > 0) {
+			this.weights.linesCleared += lr * reward * 0.04;
+			if (after.topRow > before.topRow) this.weights.safeTop += lr * reward * 0.03;
+			if (after.holes < before.holes) this.weights.holes -= lr * reward * 0.02;
+			this.lastLesson = reward >= 120 ? 'Good: layer harvest!' : 'Solid twin placement';
+		} else {
+			const s = Math.abs(reward);
+			if (after.topRow < MAX_STACK || before.topRow < MAX_STACK) {
+				this.weights.topDanger -= lr * s * 1.5;
+				this.weights.topProximity -= lr * s * 0.4;
+				this.lastLesson = 'Bad: crystal overflow';
+			}
+			if (after.holes > before.holes) { this.weights.holes -= lr * s * 0.35; this.lastLesson = 'Bad: void pockets'; }
+		}
+		this.remember(beforeBoard, type, move.x, move.z, move.rot, reward);
+		this.clampWeights();
+		if (this.moves % 5 === 0) this.save();
+	}
+	clampWeights() {
+		const w = this.weights;
+		w.linesCleared  = clamp(w.linesCleared,  800, 20000);
+		w.holes         = clamp(w.holes,         -900, -10);
+		w.topDanger     = clamp(w.topDanger,     -600000, -3000);
+		w.topProximity  = clamp(w.topProximity,  -600, -5);
+		w.lookaheadScale= clamp(w.lookaheadScale, 0.15, 0.85);
+		w.memoryScale   = clamp(w.memoryScale,   8, 100);
+		w.deadNext      = clamp(w.deadNext,      -80000, -800);
+	}
+	onGameOver() {
+		this.games++; this.weights.topDanger *= 1.015;
+		this.lastLesson = `Cave-in #${this.games} — adapting`; this.save();
+	}
+}
+const brain = new LearningBrain();
+
+// ─── GAME STATE ────────────────────────────────────────────────────────────────
+const State = { TITLE:0, PLAYING:1, PAUSED:2, GAME_OVER:3, LINE_CLEAR:4 };
+let gameState = State.TITLE;
+let current   = null; // { type, rot, x, y, z }
+let nextType  = null;
+let score     = 0, lines = 0, level = 0;
+let dropCounter = 0, dasDir = 0, dasDirZ = 0, dasCounter = 0, dasCounterZ = 0;
+let lineFlashRows = [], lineFlashTimer = 0;
+let selfPlay = false, aiMoveCounter = 0;
+let wasOverflowing = false, lastMoveContext = null, gameOverResetAt = 0;
+let pendingLearn = null;
+let bestScore = 0, bestLevel = 0;
+
+// Input state
+const kb = {
+	ArrowLeft:false, ArrowRight:false, ArrowDown:false, ArrowUp:false,
+	z:false, x:false, a:false, Enter:false, ' ':false, s:false,
+	viewYawL:false, viewYawR:false, viewPitchU:false, viewPitchD:false
+};
+const viewKb = { viewYawL: false, viewYawR: false, viewPitchU: false, viewPitchD: false };
+let keys = {}, prevKeys = {};
+let gpPrevButtons = [], gpPrevAxes = [], gpIndex = null, activeGamepadId = '';
+const GP_DEADZONE = 0.42;
+
+function loadBest() { try { return Math.max(0, parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10) || 0); } catch { return 0; } }
+function saveBest(v) { try { localStorage.setItem(HIGH_SCORE_KEY, String(v)); } catch {} }
+function loadBestLevel() { try { return Math.max(0, parseInt(localStorage.getItem(BEST_DEPTH_KEY) || '0', 10) || 0); } catch { return 0; } }
+function saveBestLevel(v) { try { localStorage.setItem(BEST_DEPTH_KEY, String(v)); } catch {} }
+
+function tryUpdateBestScore() {
+	if (score <= bestScore) return; bestScore = score; saveBest(bestScore);
+	bestEl.textContent = padScore(bestScore);
+}
+function tryUpdateBestLevel() {
+	if (level <= bestLevel) return; bestLevel = level; saveBestLevel(bestLevel);
+	bestDepthEl.textContent = formatDepth(bestLevel);
+}
+function addHarvest(n) {
+	const nx = lines + n;
+	lines = Number.isSafeInteger(nx) ? nx : Number.MAX_SAFE_INTEGER;
+}
+
+function updateLearningUI() {
+	learnStat.textContent   = `${brain.moves.toLocaleString()} · ${brain.games} runs`;
+	learnLesson.textContent = brain.lastLesson;
+}
+
+// ─── BOARD VALIDATION ─────────────────────────────────────────────────────────
+function validOnBoard3D(b, type, rot, x, y, z) {
+	if (!b || z < 0 || z >= DEPTH) return false;
+	const shape = getShape(type, rot);
+	for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
+		if (!shape[r][c]) continue;
+		const px = x + c, py = y + r;
+		if (px < 0 || px >= COLS || py >= ROWS) return false;
+		if (py >= 0 && cellAt(b, py, z, px)) return false;
+	}
+	return true;
+}
+function valid(dx = 0, dy = 0, dz = 0, rot) {
+	if (!current) return false;
+	return validOnBoard3D(board, current.type, rot ?? current.rot, current.x + dx, current.y + dy, current.z + dz);
+}
+function dropYOnBoard3D(b, type, rot, x, y0, z) {
+	let y = y0; while (validOnBoard3D(b, type, rot, x, y + 1, z)) y++; return y;
+}
+
+// ─── GAME LOGIC ────────────────────────────────────────────────────────────────
+function gravityFrames() {
+	const base = GRAVITY_FRAMES[Math.min(level, GRAVITY_FRAMES.length - 1)];
+	return Math.max(1, base - Math.floor(lithostaticMPa() * 0.35));
+}
+function tryMove(dx, dy, dz) {
+	if (!current) return false;
+	if (validOnBoard3D(board, current.type, current.rot, current.x + dx, current.y + dy, current.z + dz)) {
+		current.x += dx; current.y += dy; current.z += dz;
+		needsThreeUpdate = true; return true;
+	}
+	return false;
+}
+function tryRotate(dir) {
+	if (!current) return;
+	const states = SHAPES[current.type].length;
+	const rot = (current.rot + dir + states) % states;
+	if (validOnBoard3D(board, current.type, rot, current.x, current.y, current.z)) {
+		current.rot = rot; needsThreeUpdate = true; return;
+	}
+	for (const kick of [-1, 1, -2, 2]) {
+		if (validOnBoard3D(board, current.type, rot, current.x + kick, current.y, current.z)) {
+			current.x += kick; current.rot = rot; needsThreeUpdate = true; return;
+		}
+	}
+}
+function softDrop() {
+	if (!current) return false;
+	if (tryMove(0, 1, 0)) { score = Math.min(999999, score + 1); dropCounter = 0; return true; }
+	lockPiece(); return false;
+}
+function hardDrop() {
+	if (!current || gameState !== State.PLAYING) return;
+	while (tryMove(0, 1, 0)) score = Math.min(999999, score + 2);
+	lockPiece(); updateStats();
+}
+function lockPiece() {
+	if (!current) return;
+	const shape = getShape(current.type, current.rot);
+	const cellId = current.type + 1;
+	const cells = [];
+	for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
+		if (!shape[r][c]) continue;
+		const y = current.y + r, x = current.x + c;
+		if (y >= 0) cells.push({ x, y, z: current.z });
+	}
+	registerLockedPiece(cellId, current.type, cells);
+	playLockThud();
+	current = null;
+	applyGeologyPhysics();
+	applyRigidPieceGravity();
+	startLineClearCheck();
+	needsThreeUpdate = true;
+}
+function startLineClearCheck() {
+	lineFlashRows = [];
+	for (let y = 0; y < ROWS; y++) if (layerFull(board, y)) lineFlashRows.push(y);
+	if (!lineFlashRows.length) { afterLineClear(); return; }
+	spawnLayerParticles(lineFlashRows);
+	playShatter(lineFlashRows.length);
+	gameState = State.LINE_CLEAR;
+	lineFlashTimer = LINE_FLASH_FRAMES;
+}
+function completeLineClear() {
+	const n = lineFlashRows.length;
+	const order = [0, 40, 100, 300, 1200];
+	score = Math.min(999999, score + (order[n] || n * 300) * (level + 1));
+	addHarvest(n);
+	applyRowHarvestToPieces(lineFlashRows);
+	initGeologyGrids(); applyGeologyPhysics(); applyRigidPieceGravity();
+	const oldLevel = level;
+	while (lines >= (level + 1) * 10) level++;
+	finishAIMoveLearning(n);
+	lineFlashRows = [];
+	afterLineClear();
+	updateStats();
+	if (level !== oldLevel) dropCounter = 0;
+	if (selfPlay) aiMoveCounter = 0;
+	needsThreeUpdate = true;
+}
+function afterLineClear() {
+	spawnPiece();
+	if (gameState !== State.GAME_OVER) gameState = State.PLAYING;
+}
+function spawnPiece() {
+	const type = nextType; nextType = nesRandomPiece();
+	const sp = SPAWN[type];
+	current = { type, rot: 0, x: sp.x, y: sp.y, z: sp.z };
+	drawNext();
+	if (!validOnBoard3D(board, type, 0, sp.x, sp.y, sp.z)) {
+		gameState = State.GAME_OVER;
+		tryUpdateBestScore(); tryUpdateBestLevel();
+		goScoreEl.textContent = 'CARATS ' + padScore(score) + ' · ' + formatDepth(level);
+		gameOverOverlay.classList.add('visible');
+		if (lastMoveContext) {
+			brain.learn(-600, lastMoveContext.before, cloneBoard3D(board), lastMoveContext.type, lastMoveContext.move);
+		}
+		brain.onGameOver(); updateLearningUI();
+		if (selfPlay) gameOverResetAt = performance.now() + RESET_DELAY_MS;
+	}
+	needsThreeUpdate = true;
+}
+function newGame() {
+	board = createEmptyBoard(); lockedPieces.clear(); nextPieceId = 1;
+	initGeologyGrids(); geologyFrame = 0;
+	score = 0; lines = 0; level = 0;
+	dropCounter = 0; dasDir = 0; dasDirZ = 0; dasCounter = 0; dasCounterZ = 0;
+	lineFlashRows = []; lineFlashTimer = 0;
+	particles = [];
+	nextType = nesRandomPiece();
+	spawnPiece(); updateStats(); updateGeologyUI();
+	setGeologyStatus('Fresh vein — lithostatic load nominal');
+	needsThreeUpdate = true;
+}
+function startGame(ai = false) {
+	ensureAudio(); wakeGamepads();
+	selfPlay = ai; pendingLearn = null;
+	newGame(); gameState = State.PLAYING;
+	aiMoveCounter = AI_MOVE_FRAMES; wasOverflowing = false; gameOverResetAt = 0;
+	modeLabel.textContent = selfPlay ? 'AUTO' : 'MINE';
+	titleScreen.classList.remove('visible');
+	gameOverOverlay.classList.remove('visible');
+	pauseOverlay.classList.remove('visible');
+	updateOverflowUI();
+}
+function togglePause() {
+	if (gameState === State.PLAYING) {
+		gameState = State.PAUSED; pauseOverlay.classList.add('visible');
+	} else if (gameState === State.PAUSED) {
+		gameState = State.PLAYING; pauseOverlay.classList.remove('visible');
+	}
+}
+
+function isStackOverflow() { return topStackRow3D(board) < MAX_STACK; }
+
+function updateStats() {
+	scoreEl.textContent   = padScore(score);
+	harvestEl.textContent = formatCount(lines);
+	harvestEl.title = lines + ' gems harvested';
+	depthEl.textContent   = formatDepth(level);
+	if (nextType != null) nextLabelEl.textContent = MINERALS[nextType]?.name || '';
+	if (board && stressGrid) { assessGeologySummary(); updateGeologyUI(); }
+	tryUpdateBestScore(); tryUpdateBestLevel();
+}
+function updateOverflowUI() {
+	if (!board) return;
+	const over = isStackOverflow();
+	if (over) {
+		overflowAlert.classList.add('visible');
+		const stressNote = geoSummary.peakRatio > 0.85 ? ` · ${geoSummary.peak.toFixed(0)} MPa` : '';
+		overflowMsg.textContent = `Layer ${topStackRow3D(board) + 1}${stressNote}`;
+		if (!wasOverflowing && lastMoveContext) {
+			brain.learn(-180, lastMoveContext.before, cloneBoard3D(board), lastMoveContext.type, lastMoveContext.move);
+			updateLearningUI();
+		}
+	} else {
+		overflowAlert.classList.remove('visible');
+	}
+	wasOverflowing = over;
+}
+
+// ─── AI ────────────────────────────────────────────────────────────────────────
+function chooseBestMove() {
+	if (!current || nextType == null) {
+		const sp = SPAWN[current?.type ?? 0];
+		return { rot:0, x:sp.x, y:sp.y, z:sp.z };
+	}
+	const type = current.type;
+	const flatBoard = boardToFlat(board);
+	const placements = allPlacementsFlat(flatBoard, type, false);
+	if (!placements.length) {
+		const sp = SPAWN[type];
+		return { rot:0, x:sp.x, y:dropYOnBoard3D(board, type, 0, sp.x, sp.y, sp.z), z:sp.z };
+	}
+	let best = placements[0], bestSc = -Infinity;
+	const w = brain.weights;
+	for (const m of placements) {
+		let s = scoreEvalFlat(m.board, m.cleared, w);
+		s += brain.recall(board, type, m.x, m.z, m.rot);
+		s += Math.max(0, MAX_STACK - boardFeaturesFlat(m.board).topRow) * w.topProximity;
+		const nextPl = allPlacementsFlat(m.board, nextType, true);
+		if (!nextPl.length) s += w.deadNext;
+		else {
+			let bn = -Infinity;
+			for (const nm of nextPl) bn = Math.max(bn, scoreEvalFlat(nm.board, nm.cleared, w));
+			s += bn * w.lookaheadScale;
+		}
+		if (s > bestSc) { bestSc = s; best = m; }
+	}
+	return best;
+}
+function computeReward(before, after, cleared) {
+	const b = boardFeatures3D(before), a = boardFeatures3D(after);
+	let r = cleared * 100 + cleared * cleared * 40;
+	r += (a.topRow - b.topRow) * 12 + (b.holes - a.holes) * 8;
+	if (a.topRow < MAX_STACK) r -= 70;
+	return r;
+}
+function finishAIMoveLearning(cleared) {
+	if (!pendingLearn) return;
+	const after = cloneBoard3D(board);
+	const reward = computeReward(pendingLearn.before, after, cleared);
+	brain.learn(reward, pendingLearn.before, after, pendingLearn.type, pendingLearn.move);
+	lastMoveContext = { before: pendingLearn.before, type: pendingLearn.type, move: pendingLearn.move };
+	pendingLearn = null;
+	updateLearningUI(); updateOverflowUI();
+}
+function applyAIMove(move) {
+	current.rot = move.rot; current.x = move.x; current.y = move.y; current.z = move.z;
+	if (!validOnBoard3D(board, current.type, current.rot, current.x, current.y, current.z)) {
+		for (const kick of [-1, 1, -2, 2]) {
+			current.x = move.x + kick;
+			if (validOnBoard3D(board, current.type, current.rot, current.x, current.y, current.z)) return true;
+		}
+		return false;
+	}
+	return true;
+}
+function aiPlacePiece() {
+	if (!selfPlay || !current || gameState !== State.PLAYING) return;
+	const before = cloneBoard3D(board);
+	const type = current.type;
+	const move = chooseBestMove();
+	if (!applyAIMove(move)) return;
+	pendingLearn = { before, type, move: { x: current.x, z: current.z, rot: current.rot } };
+	lockPiece();
+	if (!lineFlashRows.length) finishAIMoveLearning(0);
+}
+function tickAI() {
+	if (!selfPlay || gameState !== State.PLAYING || !current) return;
+	aiMoveCounter++;
+	if (aiMoveCounter >= AI_MOVE_FRAMES) { aiMoveCounter = 0; aiPlacePiece(); }
+}
+
+// ─── CAMERA ORBIT (keyboard / gamepad / touch) ───────────────────────────────
+function tickViewOrbit(dt) {
+	if (viewKb.viewYawL || kb.viewYawL) CAM.yaw -= CAM_YAW_RATE * dt;
+	if (viewKb.viewYawR || kb.viewYawR) CAM.yaw += CAM_YAW_RATE * dt;
+	if (viewKb.viewPitchU || kb.viewPitchU) CAM.pitch = clamp(CAM.pitch - CAM_PITCH_RATE * dt, 0.12, 1.35);
+	if (viewKb.viewPitchD || kb.viewPitchD) CAM.pitch = clamp(CAM.pitch + CAM_PITCH_RATE * dt, 0.12, 1.35);
+
+	if (Math.abs(gpView.yaw) > 0.01 || Math.abs(gpView.pitch) > 0.01) {
+		CAM.yaw += gpView.yaw * CAM_YAW_RATE * dt * 1.4;
+		CAM.pitch = clamp(CAM.pitch + gpView.pitch * CAM_PITCH_RATE * dt * 1.4, 0.12, 1.35);
+		markCameraUserControl();
+	}
+
+	if (viewKb.viewYawL || viewKb.viewYawR || viewKb.viewPitchU || viewKb.viewPitchD
+		|| kb.viewYawL || kb.viewYawR || kb.viewPitchU || kb.viewPitchD) {
+		markCameraUserControl();
+	}
+
+	if (performance.now() > CAM.userUntil && CAM.autoSpin) {
+		CAM.yaw += 0.00016 * dt;
+	}
+	applyCameraOrbit();
+}
+
+// ─── THREE.JS MESH UPDATES ────────────────────────────────────────────────────
+function updateBoardMeshes() {
+	if (!board || !stressGrid) return;
+	const counters = new Array(8).fill(0);
+	let stressCount = 0, flashCount = 0;
+	const isFlash = gameState === State.LINE_CLEAR;
+	const flashBlink = isFlash && (lineFlashTimer % 4 < 2);
+
+	for (let y = 0; y < ROWS; y++) {
+		const isFlashRow = isFlash && lineFlashRows.includes(y);
+		for (let z = 0; z < DEPTH; z++) for (let x = 0; x < COLS; x++) {
+			const id = cellAt(board, y, z, x); if (!id) continue;
+			const t = id === RUBBLE_ID ? 7 : id - 1;
+			const pos = worldPos(x, y, z);
+			dummy.position.copy(pos); dummy.updateMatrix();
+
+			if (isFlashRow) {
+				if (flashBlink && flashCount < flashMesh.geometry.attributes.position.count) {
+					flashMesh.setMatrixAt(flashCount++, dummy.matrix);
+				}
+				continue;
+			}
+			if (counters[t] < MAX_BOARD_INST) {
+				typeMeshes[t].setMatrixAt(counters[t], dummy.matrix);
+				counters[t]++;
+			}
+			// Stress overlay
+			if (stressGrid[y]?.[z] && stressCount < MAX_BOARD_INST) {
+				const eff = effectiveStressAt(y, z, x);
+				const phys = getMineralPhysics(id);
+				const ratio = phys ? eff / phys.ucsMPa : 0;
+				if (ratio > 0.55) { stressMesh.setMatrixAt(stressCount++, dummy.matrix); }
+			}
+		}
+	}
+	for (let t = 0; t < 8; t++) {
+		typeMeshes[t].count = counters[t];
+		typeMeshes[t].instanceMatrix.needsUpdate = true;
+	}
+	stressMesh.count = stressCount; stressMesh.instanceMatrix.needsUpdate = true;
+	flashMesh.count  = flashCount;  flashMesh.instanceMatrix.needsUpdate  = true;
+}
+function updateActivePieceMeshes() {
+	for (const m of activeCells) m.visible = false;
+	for (const m of ghostCells)  m.visible = false;
+	if (!current || (gameState !== State.PLAYING && gameState !== State.LINE_CLEAR)) return;
+
+	const hexColor = MINERAL_COLORS_HEX[current.type];
+	const baseColor = new THREE.Color(hexColor);
+	const shape = getShape(current.type, current.rot);
+
+	let ghostY = current.y;
+	while (validOnBoard3D(board, current.type, current.rot, current.x, ghostY + 1, current.z)) ghostY++;
+
+	let ai = 0;
+	for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
+		if (!shape[r][c] || ai >= 4) continue;
+		const bx = current.x + c, by = current.y + r, bz = current.z;
+
+		const am = activeCells[ai];
+		am.material.color.copy(baseColor).multiplyScalar(1.35);
+		am.material.emissive.copy(baseColor).multiplyScalar(0.5);
+		am.position.copy(worldPos(bx, by, bz));
+		am.visible = true;
+
+		if (ghostY !== current.y) {
+			const gm = ghostCells[ai];
+			gm.position.copy(worldPos(bx, ghostY + r, bz));
+			gm.visible = true;
+		}
+		ai++;
+	}
+}
+
+// ─── NEXT PIECE 2D PREVIEW ─────────────────────────────────────────────────────
+function drawNext() {
+	nextCtx2d.fillStyle = '#0a0e14';
+	nextCtx2d.fillRect(0, 0, 64, 48);
+	if (nextType == null) return;
+	const shape = getShape(nextType, 0);
+	const cell = 11;
+	const cols = shape[0].length, rows = shape.length;
+	const ox = Math.floor((64 - cols * cell) / 2);
+	const oy = Math.floor((48 - rows * cell) / 2);
+	const hex = MINERAL_COLORS_HEX[nextType];
+	const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
+	nextCtx2d.fillStyle = `rgb(${r},${g},${b})`;
+	for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+		if (!shape[row][col]) continue;
+		nextCtx2d.fillRect(ox + col * cell + 1, oy + row * cell + 1, cell - 2, cell - 2);
+	}
+}
+
+// ─── INPUT HANDLING ────────────────────────────────────────────────────────────
+function handleInput() {
+	const start  = keys.Enter && !prevKeys.Enter;
+	const pressA = keys.a     && !prevKeys.a;
+	const hard   = keys[' '] && !prevKeys[' '];
+
+	if (gameState === State.TITLE) {
+		if (pressA) startGame(true);
+		else if (start) startGame(false);
+		return;
+	}
+	if (gameState === State.GAME_OVER) {
+		if (start) startGame(selfPlay);
+		else if (pressA) startGame(true);
+		return;
+	}
+	if (start) { togglePause(); return; }
+	if (pressA && gameState === State.PLAYING) {
+		selfPlay = !selfPlay;
+		modeLabel.textContent = selfPlay ? 'AUTO' : 'MINE';
+		aiMoveCounter = 0; return;
+	}
+	if (selfPlay || gameState === State.PAUSED || gameState === State.LINE_CLEAR) return;
+	if (hard) { hardDrop(); return; }
+
+	// X movement (ArrowLeft/Right)
+	if (keys.ArrowLeft && !prevKeys.ArrowLeft)  { tryMove(-1, 0, 0); dasDir = -1; dasCounter = 0; }
+	else if (keys.ArrowRight && !prevKeys.ArrowRight) { tryMove(1, 0, 0); dasDir = 1; dasCounter = 0; }
+	if (!keys.ArrowLeft && !keys.ArrowRight) dasDir = 0;
+
+	// Z-depth movement (ArrowUp/Down)
+	if (keys.ArrowUp && !prevKeys.ArrowUp)    { tryMove(0, 0, -1); dasDirZ = -1; dasCounterZ = 0; }
+	else if (keys.ArrowDown && !prevKeys.ArrowDown) { tryMove(0, 0,  1); dasDirZ =  1; dasCounterZ = 0; }
+	if (!keys.ArrowUp && !keys.ArrowDown) dasDirZ = 0;
+
+	// Rotate around Y axis
+	if (keys.z && !prevKeys.z) tryRotate(-1);
+	if (keys.x && !prevKeys.x) tryRotate(1);
+}
+function tickDas() {
+	if (dasDir) {
+		dasCounter++;
+		if (dasCounter === DAS_DELAY || (dasCounter > DAS_DELAY && (dasCounter - DAS_DELAY) % DAS_REPEAT === 0))
+			tryMove(dasDir, 0, 0);
+	}
+	if (dasDirZ) {
+		dasCounterZ++;
+		if (dasCounterZ === DAS_DELAY || (dasCounterZ > DAS_DELAY && (dasCounterZ - DAS_DELAY) % DAS_REPEAT === 0))
+			tryMove(0, 0, dasDirZ);
+	}
+}
+function tickGravity() {
+	dropCounter++;
+	if (dropCounter >= gravityFrames()) { dropCounter = 0; if (!tryMove(0, 1, 0)) lockPiece(); }
+}
+
+// ─── GAMEPAD ──────────────────────────────────────────────────────────────────
+function isBtnDown(b) {
+	if (b == null) return false;
+	if (typeof b === 'number') return b > 0.45;
+	return !!(b.pressed || (b.value != null && b.value > 0.45));
+}
+function getActiveGamepad() {
+	if (!navigator.getGamepads) return null;
+	const pads = navigator.getGamepads();
+	if (gpIndex != null && pads[gpIndex]?.connected) return pads[gpIndex];
+	for (let i = 0; i < pads.length; i++) { const gp = pads[i]; if (gp?.connected) { gpIndex = i; return gp; } }
+	return null;
+}
+function seedGamepadState(gp) {
+	if (!gp) return;
+	gpPrevButtons = []; for (let i = 0; i < gp.buttons.length; i++) gpPrevButtons[i] = isBtnDown(gp.buttons[i]);
+	gpPrevAxes = gp.axes ? gp.axes.map(a => a || 0) : [];
+}
+function pollGamepad() {
+	const gpHeld = { ArrowLeft:false, ArrowRight:false, ArrowUp:false, ArrowDown:false, s:false };
+	const gpEdge = { z:false, x:false, a:false, Enter:false, ' ':false };
+	const gp = getActiveGamepad();
+	if (!gp) {
+		gpView.yaw = 0;
+		gpView.pitch = 0;
+		if (gpIndex != null) { gpIndex = null; activeGamepadId = ''; gpPrevButtons = []; gpPrevAxes = []; }
+	} else {
+		if (gp.id !== activeGamepadId || gpPrevButtons.length !== gp.buttons.length) { activeGamepadId = gp.id; seedGamepadState(gp); }
+		const btn  = (i) => i < gp.buttons.length && isBtnDown(gp.buttons[i]);
+		const edge = (i) => btn(i) && !gpPrevButtons[i];
+		// D-pad: L/R = X move, U/D = Z depth
+		if (btn(14)) gpHeld.ArrowLeft  = true;
+		if (btn(15)) gpHeld.ArrowRight = true;
+		if (btn(12)) gpHeld.ArrowUp   = true;
+		if (btn(13)) gpHeld.ArrowDown = true;
+		// Left stick X → X move, Y down → soft drop
+		const ax0 = gp.axes[0] || 0, ay0 = gp.axes[1] || 0;
+		if (Math.abs(ax0) > GP_DEADZONE) { if (ax0 < 0) gpHeld.ArrowLeft = true; else gpHeld.ArrowRight = true; }
+		if (ay0 > GP_DEADZONE) gpHeld.s = true;
+		// Right stick → spin cavern view (orbit)
+		const rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+		gpView.yaw = 0;
+		gpView.pitch = 0;
+		if (Math.abs(rx) > GP_DEADZONE) gpView.yaw = rx;
+		if (Math.abs(ry) > GP_DEADZONE) gpView.pitch = ry;
+		// Hat axes (backup X / Z if stick centered)
+		const ax6 = gp.axes[6], ax7 = gp.axes[7];
+		if (ax6 != null && Math.abs(ax6) > GP_DEADZONE) { if (ax6 < 0) gpHeld.ArrowLeft = true; else gpHeld.ArrowRight = true; }
+		if (ax7 != null && Math.abs(ax7) > GP_DEADZONE) { if (ax7 < 0) gpHeld.ArrowUp = true; else gpHeld.ArrowDown = true; }
+		// Buttons: A/Y=rotate CW, B/X=rotate CCW, Start=pause, Select=AI, RT/RB=hard drop, LB=soft drop
+		gpEdge.x     = edge(0) || edge(3);
+		gpEdge.z     = edge(1) || edge(2);
+		gpEdge.Enter = edge(9) || edge(4);
+		gpEdge.a     = edge(8) || edge(6);
+		gpEdge[' ']  = edge(7) || edge(5);
+		if (btn(4)) gpHeld.s = true; // LB for soft drop
+		gpPrevButtons = []; for (let i = 0; i < gp.buttons.length; i++) gpPrevButtons[i] = btn(i);
+		if (gp.axes) gpPrevAxes = gp.axes.map(a => a || 0);
+	}
+	keys.ArrowLeft  = kb.ArrowLeft  || gpHeld.ArrowLeft;
+	keys.ArrowRight = kb.ArrowRight || gpHeld.ArrowRight;
+	keys.ArrowUp    = kb.ArrowUp    || gpHeld.ArrowUp;
+	keys.ArrowDown  = kb.ArrowDown  || gpHeld.ArrowDown;
+	keys.s          = kb.s          || gpHeld.s;
+	keys.z          = kb.z          || gpEdge.z;
+	keys.x          = kb.x          || gpEdge.x;
+	keys.a          = kb.a          || gpEdge.a;
+	keys.Enter      = kb.Enter      || gpEdge.Enter;
+	keys[' ']       = kb[' ']       || gpEdge[' '];
+}
+function wakeGamepads() {
+	if (!navigator.getGamepads) return;
+	for (const gp of navigator.getGamepads()) {
+		if (gp?.connected) { gpIndex = gp.index; activeGamepadId = gp.id; seedGamepadState(gp); break; }
+	}
+}
+function setKbKey(k, down) {
+	if (k === 'z' || k === 'Z') kb.z = down;
+	else if (k === 'x' || k === 'X') kb.x = down;
+	else if (k === 'a' || k === 'A') kb.a = down;
+	else if (k === 's' || k === 'S') kb.s = down;
+	else if (k === 'Enter') kb.Enter = down;
+	else if (k === ' ') kb[' '] = down;
+	else if (k === '[' || k === '{') { kb.viewYawL = down; viewKb.viewYawL = down; }
+	else if (k === ']' || k === '}') { kb.viewYawR = down; viewKb.viewYawR = down; }
+	else if (k === ',' || k === '<') { kb.viewPitchU = down; viewKb.viewPitchU = down; }
+	else if (k === '.' || k === '>') { kb.viewPitchD = down; viewKb.viewPitchD = down; }
+	else if (k.startsWith('Arrow')) kb[k] = down;
+}
+
+function pollViewKeys() {
+	viewKb.viewYawL = kb.viewYawL;
+	viewKb.viewYawR = kb.viewYawR;
+	viewKb.viewPitchU = kb.viewPitchU;
+	viewKb.viewPitchD = kb.viewPitchD;
+}
+
+// ─── GAME LOOP ─────────────────────────────────────────────────────────────────
+let lastTime = 0, accum = 0;
+const FRAME_MS = 1000 / 60;
+
+function gameTick() {
+	if (gameState === State.PLAYING && !selfPlay) {
+		tickDas();
+		if (keys.s) softDrop();
+		else tickGravity();
+	}
+	if (gameState === State.PLAYING) tickGeologySimulation();
+	if (gameState === State.LINE_CLEAR) {
+		lineFlashTimer--;
+		if (lineFlashTimer <= 0) completeLineClear();
+	} else if (selfPlay && gameState === State.PLAYING) {
+		tickAI();
+	}
+	if (gameState === State.GAME_OVER && selfPlay && gameOverResetAt > 0) {
+		if (performance.now() >= gameOverResetAt) { gameOverOverlay.classList.remove('visible'); startGame(true); }
+	}
+}
+
+function loop(now) {
+	try {
+		pollGamepad();
+		pollViewKeys();
+		handleInput();
+		const dt = Math.min((now - lastTime) || FRAME_MS, 50);
+		lastTime = now; accum += dt;
+		while (accum >= FRAME_MS) { accum -= FRAME_MS; gameTick(); }
+
+		tickViewOrbit(dt);
+		const active = gameState !== State.TITLE;
+		if (active && needsThreeUpdate) { updateBoardMeshes(); needsThreeUpdate = false; }
+		if (active) updateActivePieceMeshes();
+		updateParticles(dt / FRAME_MS);
+		renderer.render(scene, camera);
+
+		updateStats(); updateOverflowUI();
+		updateLearningUI();
+		prevKeys = { ...keys };
+	} catch (err) {
+		console.error('Crystal Twins 3D error:', err);
+		modeLabel.textContent = 'ERR';
+	}
+	requestAnimationFrame(loop);
+}
+
+// ─── TOUCH CONTROLS ────────────────────────────────────────────────────────────
+function bindTouchButton(btn) {
+	const key = btn.getAttribute('data-touch'); if (!key) return;
+	const press = (e) => {
+		e.preventDefault(); ensureAudio(); setKbKey(key, true);
+		btn.classList.add('pressed');
+		try { btn.setPointerCapture(e.pointerId); } catch {}
+	};
+	const release = (e) => {
+		e.preventDefault(); setKbKey(key, false);
+		btn.classList.remove('pressed');
+		try { btn.releasePointerCapture(e.pointerId); } catch {}
+	};
+	btn.addEventListener('pointerdown', press);
+	btn.addEventListener('pointerup', release);
+	btn.addEventListener('pointercancel', release);
+	btn.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+function bindViewButton(btn) {
+	const action = btn.getAttribute('data-view');
+	if (!action) return;
+	const press = (e) => {
+		e.preventDefault();
+		markCameraUserControl();
+		if (action === 'yawL') viewKb.viewYawL = true;
+		if (action === 'yawR') viewKb.viewYawR = true;
+		if (action === 'pitchU') viewKb.viewPitchU = true;
+		if (action === 'pitchD') viewKb.viewPitchD = true;
+		btn.classList.add('pressed');
+		try { btn.setPointerCapture(e.pointerId); } catch {}
+	};
+	const release = (e) => {
+		e.preventDefault();
+		if (action === 'yawL') viewKb.viewYawL = false;
+		if (action === 'yawR') viewKb.viewYawR = false;
+		if (action === 'pitchU') viewKb.viewPitchU = false;
+		if (action === 'pitchD') viewKb.viewPitchD = false;
+		btn.classList.remove('pressed');
+		try { btn.releasePointerCapture(e.pointerId); } catch {}
+	};
+	btn.addEventListener('pointerdown', press);
+	btn.addEventListener('pointerup', release);
+	btn.addEventListener('pointercancel', release);
+}
+
+function initTouchControls() {
+	if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('has-touch');
+	document.querySelectorAll('#touchBar [data-touch]').forEach(bindTouchButton);
+	document.querySelectorAll('#touchBar [data-view]').forEach(bindViewButton);
+	const touchStart = document.getElementById('touchStart');
+	const touchAuto  = document.getElementById('touchAuto');
+	if (touchStart) touchStart.addEventListener('click', (e) => {
+		e.preventDefault(); ensureAudio();
+		if (gameState === State.TITLE) startGame(false);
+		else if (gameState === State.GAME_OVER) startGame(selfPlay);
+		else togglePause();
+	});
+	if (touchAuto) touchAuto.addEventListener('click', (e) => {
+		e.preventDefault(); ensureAudio();
+		if (gameState === State.TITLE) startGame(true);
+		else if (gameState === State.GAME_OVER) startGame(true);
+		else if (gameState === State.PLAYING) { selfPlay = !selfPlay; modeLabel.textContent = selfPlay ? 'AUTO' : 'MINE'; aiMoveCounter = 0; }
+	});
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') {
+			for (const k of Object.keys(kb)) kb[k] = false;
+			for (const k of Object.keys(viewKb)) viewKb[k] = false;
+			document.querySelectorAll('.touch-btn.pressed').forEach(b => b.classList.remove('pressed'));
+		}
+	});
+}
+
+// ─── WINDOW EVENTS ────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+	renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+	camera.aspect = viewport.clientWidth / viewport.clientHeight;
+	camera.updateProjectionMatrix();
+});
+document.addEventListener('keydown', (e) => {
+	const k = e.key;
+	if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Enter',' ','z','x','Z','X','a','A','s','S','[',']',',','.'].includes(k)) e.preventDefault();
+	setKbKey(k, true);
+	if (k !== ' ') ensureAudio();
+	pollGamepad();
+});
+document.addEventListener('keyup', (e) => { setKbKey(e.key, false); pollGamepad(); });
+window.addEventListener('gamepadconnected', (e) => {
+	gpIndex = e.gamepad.index; activeGamepadId = e.gamepad.id; seedGamepadState(e.gamepad);
+	controlsHelp.textContent = 'Pad ready · R-stick=spin view · D-pad=Z-depth · Start=mine';
+});
+window.addEventListener('gamepaddisconnected', (e) => {
+	if (e.gamepad.index === gpIndex) { gpIndex = null; activeGamepadId = ''; gpPrevButtons = []; }
+});
+document.addEventListener('pointerdown', wakeGamepads, { once:true, passive:true });
+document.addEventListener('keydown', wakeGamepads, { once:true });
+window.addEventListener('beforeunload', () => { saveBest(bestScore); saveBestLevel(bestLevel); brain.save(); });
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+board     = createEmptyBoard();
+lockedPieces = new Map();
+nextPieceId  = 1;
+initGeologyGrids();
+updateGeologyUI();
+lineFlashRows = []; lineFlashTimer = 0;
+nextType = null; current = null;
+bestScore = loadBest(); bestEl.textContent   = padScore(bestScore);
+bestLevel = loadBestLevel(); bestDepthEl.textContent = formatDepth(bestLevel);
+depthEl.textContent = formatDepth(0);
+updateLearningUI();
+initViewOrbitInput();
+initTouchControls();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
