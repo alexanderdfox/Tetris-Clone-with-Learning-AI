@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Token Catcher</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: radial-gradient(circle at top, #3a2412 0, #1a1209 48%, #090603 100%);
+      --accent: #e7c87b;
+      --accent-soft: rgba(231, 200, 123, 0.28);
+      --text-main: #f8efd6;
+      --text-soft: #c8b995;
+      --danger: #db5c45;
+      --lapis: #6fb8d6;
+      --stone: #4c3826;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, "Times New Roman", serif;
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .frame {
+      width: min(960px, 100vw - 32px);
+      height: min(640px, 100vh - 32px);
+      border-radius: 18px;
+      border: 2px solid rgba(207, 168, 97, 0.35);
+      background:
+        radial-gradient(circle at top left, rgba(229, 198, 120, 0.12), transparent 56%),
+        radial-gradient(circle at bottom right, rgba(99, 151, 168, 0.22), transparent 64%),
+        linear-gradient(160deg, #271b12, #1c130d 60%, #140e09);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 18px 62px rgba(0, 0, 0, 0.7),
+        0 0 52px rgba(231, 200, 123, 0.12);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(231, 200, 123, 0.18);
+      backdrop-filter: blur(16px);
+    }
+
+    .chrome-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #e3d6b4;
+    }
+
+    .chrome-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #cda86b, #f1da9e);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+    }
+
+    .chrome-dot:nth-child(2) {
+      background: linear-gradient(135deg, #9f7e45, #cfb57b);
+    }
+
+    .chrome-dot:nth-child(3) {
+      background: linear-gradient(135deg, #688f9d, #9ac9d9);
+    }
+
+    .chrome-dots {
+      display: flex;
+      gap: 6px;
+      margin-right: 10px;
+    }
+
+    .badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(231, 200, 123, 0.45);
+      background: radial-gradient(circle at top, rgba(231, 200, 123, 0.24), rgba(20, 12, 7, 0.9));
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #f2d894;
+    }
+
+    .chrome-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      color: #d5c39b;
+    }
+
+    .chrome-right span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .keycap {
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(230, 194, 115, 0.3);
+      background: linear-gradient(145deg, #3d2b1f, #241912);
+      font-size: 11px;
+      color: #f8e8bf;
+    }
+
+    .game-shell {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.05fr);
+      padding: 14px 16px 16px 16px;
+      gap: 16px;
+    }
+
+    @media (max-width: 720px) {
+      .game-shell {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 1.4fr auto;
+      }
+    }
+
+    .playfield {
+      border-radius: 16px;
+      border: 1px solid rgba(231, 200, 123, 0.3);
+      background:
+        linear-gradient(135deg, rgba(20, 13, 8, 0.88), rgba(33, 21, 13, 0.95)),
+        radial-gradient(circle at top, rgba(231, 200, 123, 0.09), transparent 60%);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(10, 7, 3, 0.9);
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #d4c4a1;
+      position: absolute;
+      inset-inline: 0;
+      top: 0;
+      background: linear-gradient(to bottom, rgba(23, 14, 8, 0.85), transparent);
+      z-index: 5;
+    }
+
+    .hud-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .hud-label {
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: rgba(214, 193, 145, 0.85);
+    }
+
+    .hud-value {
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      color: #f0d797;
+    }
+
+    .avatar {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      border: 1px solid rgba(231, 200, 123, 0.55);
+      background:
+        radial-gradient(circle at top, rgba(248, 233, 186, 0.22), transparent 62%),
+        linear-gradient(145deg, #4e3827, #2c1f16);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.9),
+        0 0 18px rgba(231, 200, 123, 0.28);
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f6e2a8;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      padding: 6px;
+      pointer-events: none;
+    }
+
+    .avatar-glow {
+      position: absolute;
+      inset: -22px;
+      border-radius: 24px;
+      background: radial-gradient(circle, rgba(231, 200, 123, 0.4), transparent 60%);
+      opacity: 0;
+      transition: opacity 120ms ease-out;
+      pointer-events: none;
+    }
+
+    .avatar.hit .avatar-glow {
+      opacity: 1;
+    }
+
+    .token {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(219, 191, 122, 0.35);
+      background:
+        radial-gradient(circle at top, rgba(255, 238, 197, 0.22), transparent 60%),
+        linear-gradient(145deg, #5d422f, #332317);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff6da;
+      pointer-events: none;
+    }
+
+    .token.good {
+      border-color: rgba(231, 200, 123, 0.85);
+      box-shadow: 0 0 18px rgba(231, 200, 123, 0.4);
+      color: #ffeaad;
+    }
+
+    .token.bad {
+      border-color: rgba(219, 92, 69, 0.82);
+      box-shadow: 0 0 18px rgba(219, 92, 69, 0.45);
+      color: #ffd1bf;
+    }
+
+    .scanline {
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(
+        to bottom,
+        rgba(255, 234, 189, 0.07) 0,
+        rgba(255, 234, 189, 0.015) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      background-size: 100% 4px;
+      mix-blend-mode: soft-light;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .side-panel {
+      border-radius: 16px;
+      border: 1px solid rgba(231, 200, 123, 0.25);
+      background:
+        linear-gradient(160deg, rgba(34, 24, 16, 0.98), rgba(19, 13, 9, 0.98)),
+        radial-gradient(circle at top, rgba(111, 184, 214, 0.08), transparent 68%);
+      padding: 14px 16px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      color: #d7c7a3;
+      font-size: 13px;
+    }
+
+    .side-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f3e2b1;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .side-sub {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: rgba(191, 166, 117, 0.9);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(231, 200, 123, 0.22);
+      background: radial-gradient(circle at top, rgba(255, 224, 160, 0.1), rgba(17, 11, 7, 0.9));
+      font-size: 11px;
+      color: #d8c9a4;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #f0d691;
+      box-shadow: 0 0 8px rgba(231, 200, 123, 0.7);
+    }
+
+    .pill-dot.bad {
+      background: #db5c45;
+      box-shadow: 0 0 8px rgba(219, 92, 69, 0.7);
+    }
+
+    .controls {
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(231, 200, 123, 0.22);
+      font-size: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .controls-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    button.play {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: #2d1f13;
+      background: radial-gradient(circle at top, #f0d38e, #ca9d56);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.9),
+        0 10px 26px rgba(202, 157, 86, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 90ms ease-out, box-shadow 90ms ease-out, filter 80ms ease-out,
+        background 120ms ease-out;
+    }
+
+    button.play:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.9),
+        0 14px 34px rgba(202, 157, 86, 0.4);
+    }
+
+    button.play:active {
+      transform: translateY(0);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.9),
+        0 8px 18px rgba(202, 157, 86, 0.35);
+    }
+
+    button.play.secondary {
+      color: #ecd9aa;
+      background: radial-gradient(circle at top, #4b3a2a, #2e2218);
+      border: 1px solid rgba(231, 200, 123, 0.25);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.9),
+        0 8px 14px rgba(0, 0, 0, 0.35);
+    }
+
+    .status {
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(237, 219, 176, 0.9);
+      min-height: 1.3em;
+    }
+
+    .status span {
+      color: #f5dfa0;
+      font-weight: 500;
+    }
+
+    .logs {
+      margin-top: 4px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(25, 17, 10, 0.9), rgba(16, 11, 7, 0.95));
+      font-family: "Courier New", Courier, monospace;
+      font-size: 11px;
+      max-height: 160px;
+      overflow: auto;
+      border: 1px solid rgba(231, 200, 123, 0.1);
+    }
+
+    .log-line {
+      color: rgba(220, 198, 147, 0.92);
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+
+    .log-line span.good {
+      color: #f4da9c;
+    }
+
+    .log-line span.bad {
+      color: #e28170;
+    }
+
+    .log-line span.dim {
+      color: rgba(164, 142, 97, 0.9);
+    }
+
+    .muted {
+      color: rgba(172, 152, 112, 0.9);
+    }
+
+    .sand-mote {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(247, 224, 168, 0.7);
+      box-shadow: 0 0 8px rgba(247, 224, 168, 0.45);
+      opacity: 0.55;
+      animation: drift linear forwards;
+      pointer-events: none;
+    }
+
+    @keyframes drift {
+      from { transform: translateY(0) translateX(0); opacity: 0.6; }
+      to { transform: translateY(360px) translateX(35px); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header class="chrome">
+      <div class="chrome-left">
+        <div class="chrome-dots">
+          <div class="chrome-dot"></div>
+          <div class="chrome-dot"></div>
+          <div class="chrome-dot"></div>
+        </div>
+        <span class="badge">Royal Game of Ur · Temple Edition</span>
+      </div>
+      <div class="chrome-right">
+        <span><span class="keycap">←</span><span class="keycap">→</span> Move</span>
+        <span><span class="keycap">Space</span> or <span class="keycap">Click</span> to start</span>
+      </div>
+    </header>
+
+    <main class="game-shell">
+      <section class="playfield" id="playfield">
+        <div class="hud">
+          <div class="hud-group">
+            <div>
+              <div class="hud-label">Score</div>
+              <div class="hud-value" id="score">000</div>
+            </div>
+            <div>
+              <div class="hud-label">Streak</div>
+              <div class="hud-value" id="streak">0</div>
+            </div>
+          </div>
+          <div class="hud-group">
+            <div>
+              <div class="hud-label">Broken Relics</div>
+              <div class="hud-value" id="misses">0 / 5</div>
+            </div>
+            <div>
+              <div class="hud-label">Oracle</div>
+              <div class="hud-value" id="state-label">Idle</div>
+            </div>
+          </div>
+        </div>
+        <div class="avatar" id="avatar">
+          <div class="avatar-glow"></div>
+          <span>UR<br />SEER</span>
+        </div>
+        <div class="scanline"></div>
+      </section>
+
+      <aside class="side-panel">
+        <div>
+          <div class="side-title">
+            <span>Temple of Ur: Relic Catch</span>
+            <span class="side-sub">Little UR game</span>
+          </div>
+          <p class="muted" style="margin-top:4px;">
+            Guide the seer to gather blessed relics and avoid cursed omens.
+            Build a sacred streak while the temple drums rise.
+          </p>
+          <div class="pill-row">
+            <span class="pill"><span class="pill-dot"></span> Blessed relic = +10</span>
+            <span class="pill"><span class="pill-dot"></span> Sacred streak = bonus</span>
+            <span class="pill"><span class="pill-dot bad"></span> Cursed omen = −1 life</span>
+            <span class="pill"><span class="pill-dot bad"></span> 5 breaks = temple falls</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="controls-row">
+            <div class="controls-left">
+              <button class="play" id="play-btn">
+                <span>▶</span>
+                <span>Begin Rite</span>
+              </button>
+              <button class="play secondary" id="sound-btn" type="button">
+                <span>🔊</span>
+                <span>Sound On</span>
+              </button>
+              <button class="play secondary" id="ai-btn" type="button">
+                <span>🤖</span>
+                <span>AI Off</span>
+              </button>
+              <span class="muted">Drums quicken as your score rises.</span>
+            </div>
+          </div>
+          <div class="status" id="status">
+            Press <span>Space</span> or click <span>Begin Rite</span> to awaken the board.
+          </div>
+          <div class="logs" id="logs">
+            <div class="log-line muted">// temple chronicles appear here</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const playfield = document.getElementById("playfield");
+    const avatar = document.getElementById("avatar");
+    const scoreEl = document.getElementById("score");
+    const streakEl = document.getElementById("streak");
+    const missesEl = document.getElementById("misses");
+    const stateLabel = document.getElementById("state-label");
+    const statusEl = document.getElementById("status");
+    const logsEl = document.getElementById("logs");
+    const playBtn = document.getElementById("play-btn");
+    const soundBtn = document.getElementById("sound-btn");
+    const aiBtn = document.getElementById("ai-btn");
+
+    let running = false;
+    let soundEnabled = true;
+    let aiEnabled = false;
+    let audioCtx = null;
+    let ambientNodes = null;
+    let score = 0;
+    let streak = 0;
+    let misses = 0;
+    let avatarX = 0.5;
+    let tokens = [];
+    let lastSpawn = 0;
+    let spawnInterval = 900;
+    let lastTime = 0;
+
+    const goodGlyphs = ["𒀭", "✶", "◇", "☼", "𒂍", "𒄿", "𒆠"];
+    const badGlyphs = ["✖", "☠", "⚠", "☢", "𒄑", "𒉌"];
+
+    function ensureAudio() {
+      if (audioCtx) return audioCtx;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+      return audioCtx;
+    }
+
+    function tone({ freq = 440, type = "sine", duration = 0.12, gain = 0.05, slideTo = null }) {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const amp = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      if (slideTo) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), now + duration);
+      }
+      amp.gain.setValueAtTime(0.0001, now);
+      amp.gain.exponentialRampToValueAtTime(gain, now + 0.02);
+      amp.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(amp).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.01);
+    }
+
+    function playGoodSound() {
+      tone({ freq: 392, type: "triangle", duration: 0.14, gain: 0.05, slideTo: 494 });
+      setTimeout(() => tone({ freq: 588, type: "sine", duration: 0.1, gain: 0.04 }), 40);
+    }
+
+    function playBadSound() {
+      tone({ freq: 240, type: "sawtooth", duration: 0.18, gain: 0.045, slideTo: 130 });
+    }
+
+    function playStartSound() {
+      tone({ freq: 220, type: "triangle", duration: 0.14, gain: 0.04, slideTo: 277 });
+      setTimeout(() => tone({ freq: 330, type: "triangle", duration: 0.16, gain: 0.04, slideTo: 392 }), 90);
+    }
+
+    function playGameOverSound() {
+      tone({ freq: 240, type: "square", duration: 0.2, gain: 0.04, slideTo: 190 });
+      setTimeout(() => tone({ freq: 180, type: "square", duration: 0.24, gain: 0.035, slideTo: 120 }), 120);
+    }
+
+    function updateSoundButton() {
+      soundBtn.querySelector("span").textContent = soundEnabled ? "🔊" : "🔇";
+      soundBtn.querySelectorAll("span")[1].textContent = soundEnabled ? "Sound On" : "Sound Off";
+    }
+
+    function updateAIButton() {
+      aiBtn.querySelector("span").textContent = aiEnabled ? "🤖" : "🧠";
+      aiBtn.querySelectorAll("span")[1].textContent = aiEnabled ? "AI On" : "AI Off";
+    }
+
+    function startAmbient() {
+      if (!soundEnabled || ambientNodes) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 380;
+      osc.type = "sine";
+      osc2.type = "triangle";
+      osc.frequency.setValueAtTime(92.5, now);
+      osc2.frequency.setValueAtTime(138.6, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.02, now + 0.8);
+      osc.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc2.start(now);
+      ambientNodes = { osc, osc2, gain };
+    }
+
+    function stopAmbient() {
+      if (!ambientNodes) return;
+      const ctx = audioCtx;
+      const now = ctx.currentTime;
+      ambientNodes.gain.gain.cancelScheduledValues(now);
+      ambientNodes.gain.gain.setValueAtTime(Math.max(0.0001, ambientNodes.gain.gain.value), now);
+      ambientNodes.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+      ambientNodes.osc.stop(now + 0.5);
+      ambientNodes.osc2.stop(now + 0.5);
+      ambientNodes = null;
+    }
+
+    function sprinkleSand() {
+      if (!running) return;
+      const mote = document.createElement("div");
+      mote.className = "sand-mote";
+      const rect = playfield.getBoundingClientRect();
+      mote.style.left = `${Math.random() * rect.width}px`;
+      mote.style.top = `${40 + Math.random() * 100}px`;
+      mote.style.animationDuration = `${2.6 + Math.random() * 2.5}s`;
+      playfield.appendChild(mote);
+      setTimeout(() => mote.remove(), 5200);
+    }
+
+    function logLine(text, type = "info") {
+      const div = document.createElement("div");
+      div.className = "log-line";
+      if (type === "good") {
+        div.innerHTML = '<span class="good">✔</span> <span class="dim">' + text + "</span>";
+      } else if (type === "bad") {
+        div.innerHTML = '<span class="bad">✖</span> <span class="dim">' + text + "</span>";
+      } else {
+        div.innerHTML = '<span class="dim">' + text + "</span>";
+      }
+      logsEl.appendChild(div);
+      while (logsEl.children.length > 40) {
+        logsEl.removeChild(logsEl.firstChild);
+      }
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function setStateLabel(text) {
+      stateLabel.textContent = text;
+    }
+
+    function formatScore(n) {
+      return n.toString().padStart(3, "0");
+    }
+
+    function resetGame() {
+      score = 0;
+      streak = 0;
+      misses = 0;
+      tokens.forEach(t => t.el.remove());
+      tokens = [];
+      spawnInterval = 900;
+      lastSpawn = 0;
+      lastTime = 0;
+      scoreEl.textContent = formatScore(score);
+      streakEl.textContent = streak.toString();
+      missesEl.textContent = `${misses} / 5`;
+      setStateLabel("Idle");
+      statusEl.innerHTML = 'Press <span>Space</span> or click <span>Begin Rite</span> to awaken the board.';
+    }
+
+    async function startGame() {
+      if (running) return;
+      const ctx = ensureAudio();
+      if (ctx && ctx.state === "suspended") {
+        try {
+          await ctx.resume();
+        } catch (err) {
+          logLine("audio wake failed; continuing silently");
+        }
+      }
+      resetGame();
+      running = true;
+      setStateLabel("Running");
+      statusEl.innerHTML = "Catch <span>blessed</span> relics and dodge <span>cursed</span> omens.";
+      logLine("rite begun: the tablets are cast");
+      playStartSound();
+      startAmbient();
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      running = false;
+      setStateLabel("Game Over");
+      statusEl.innerHTML =
+        'Rite ended. Final score: <span>' +
+        formatScore(score) +
+        "</span>. Press <span>Space</span> or click <span>Begin Rite</span> for another attempt.";
+      logLine("chronicle sealed: score=" + score + " streak=" + streak + " breaks=" + misses);
+      playGameOverSound();
+      stopAmbient();
+    }
+
+    function spawnToken(time) {
+      const rect = playfield.getBoundingClientRect();
+      const isGood = Math.random() < 0.7;
+      const x = 40 + Math.random() * (rect.width - 80);
+      const el = document.createElement("div");
+      el.className = "token " + (isGood ? "good" : "bad");
+      el.textContent = isGood
+        ? goodGlyphs[Math.floor(Math.random() * goodGlyphs.length)]
+        : badGlyphs[Math.floor(Math.random() * badGlyphs.length)];
+      playfield.appendChild(el);
+      tokens.push({
+        el,
+        x,
+        y: 72,
+        vy: 120 + Math.random() * 70,
+        good: isGood
+      });
+      lastSpawn = time;
+    }
+
+    function updateAvatarPosition() {
+      const rect = playfield.getBoundingClientRect();
+      const x = rect.left + avatarX * rect.width;
+      const y = rect.bottom - rect.height * 0.18;
+      avatar.style.left = `${x - rect.left}px`;
+      avatar.style.top = `${y - rect.top}px`;
+    }
+
+    function handlePointerMove(e) {
+      if (aiEnabled) {
+        aiEnabled = false;
+        updateAIButton();
+        logLine("manual override: AI pilot disengaged");
+      }
+      const rect = playfield.getBoundingClientRect();
+      const x = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+      if (typeof x !== "number") return;
+      const rel = (x - rect.left) / rect.width;
+      avatarX = Math.min(0.97, Math.max(0.03, rel));
+      updateAvatarPosition();
+    }
+
+    function handleKey(e) {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!running) startGame();
+        return;
+      }
+      if (e.key.toLowerCase() === "a") {
+        aiEnabled = !aiEnabled;
+        updateAIButton();
+        logLine(aiEnabled ? "AI pilot engaged" : "AI pilot disengaged");
+        return;
+      }
+      if (!running) return;
+      const step = 0.04;
+      if (e.key === "ArrowLeft") {
+        if (aiEnabled) {
+          aiEnabled = false;
+          updateAIButton();
+          logLine("manual override: AI pilot disengaged");
+        }
+        avatarX = Math.max(0.03, avatarX - step);
+        updateAvatarPosition();
+      } else if (e.key === "ArrowRight") {
+        if (aiEnabled) {
+          aiEnabled = false;
+          updateAIButton();
+          logLine("manual override: AI pilot disengaged");
+        }
+        avatarX = Math.min(0.97, avatarX + step);
+        updateAvatarPosition();
+      }
+    }
+
+    function updateAIMovement(dt, rect) {
+      if (!aiEnabled || !running) return;
+      const avatarPx = avatarX * rect.width;
+      let targetPx = avatarPx;
+      let bestScore = -Infinity;
+
+      for (const t of tokens) {
+        const timeToCatchLine = (rect.height * 0.82 - t.y) / t.vy;
+        if (timeToCatchLine < -0.1 || timeToCatchLine > 2.2) continue;
+        const distance = Math.abs(t.x - avatarPx);
+        const urgency = Math.max(0.15, 2.4 - Math.abs(timeToCatchLine - 0.55));
+        const tokenValue = t.good ? 1 : -2.3;
+        const value = tokenValue * urgency - distance / rect.width;
+        if (value > bestScore) {
+          bestScore = value;
+          targetPx = t.x;
+        }
+      }
+
+      const maxSpeed = rect.width * 0.9;
+      const delta = Math.max(-maxSpeed * dt, Math.min(maxSpeed * dt, targetPx - avatarPx));
+      avatarX = Math.max(0.03, Math.min(0.97, (avatarPx + delta) / rect.width));
+      updateAvatarPosition();
+    }
+
+    function loop(time) {
+      if (!running) return;
+      const dt = Math.min(0.032, (time - lastTime) / 1000);
+      lastTime = time;
+
+      const rect = playfield.getBoundingClientRect();
+      const avatarRect = avatar.getBoundingClientRect();
+
+      tokens.forEach(t => {
+        t.y += t.vy * dt;
+        t.el.style.transform = `translate(${t.x - 16}px, ${t.y - 16}px)`;
+      });
+
+      const remaining = [];
+      let hitGood = false;
+      let hitBad = false;
+
+      tokens.forEach(t => {
+        const tokenRect = t.el.getBoundingClientRect();
+        const centerY = tokenRect.top + tokenRect.height / 2;
+        const centerX = tokenRect.left + tokenRect.width / 2;
+
+        if (centerY > avatarRect.top && centerY < avatarRect.bottom &&
+            centerX > avatarRect.left && centerX < avatarRect.right) {
+          if (t.good) {
+            hitGood = true;
+            score += 10 + Math.max(0, streak) * 2;
+            streak += 1;
+            logLine("blessed relic secured (+score)", "good");
+            playGoodSound();
+          } else {
+            hitBad = true;
+            misses += 1;
+            streak = 0;
+            logLine("cursed omen touched (−life)", "bad");
+            playBadSound();
+          }
+          t.el.remove();
+        } else if (t.y > rect.height + 32) {
+          if (t.good) {
+            misses += 1;
+            streak = 0;
+            logLine("relic shattered before collection (−life)", "bad");
+            playBadSound();
+          }
+          t.el.remove();
+        } else {
+          remaining.push(t);
+        }
+      });
+
+      tokens = remaining;
+
+      if (hitGood || hitBad) {
+        avatar.classList.add("hit");
+        setTimeout(() => avatar.classList.remove("hit"), 90);
+      }
+
+      if (misses >= 5) {
+        missesEl.textContent = `${misses} / 5`;
+        scoreEl.textContent = formatScore(score);
+        streakEl.textContent = streak.toString();
+        endGame();
+        return;
+      }
+
+      const progress = Math.min(1, Math.max(0, score / 500));
+      spawnInterval = 900 - progress * 500;
+
+      if (time - lastSpawn > spawnInterval) {
+        spawnToken(time);
+      }
+
+      if (Math.random() < 0.07) {
+        sprinkleSand();
+      }
+
+      updateAIMovement(dt, rect);
+
+      scoreEl.textContent = formatScore(score);
+      streakEl.textContent = streak.toString();
+      missesEl.textContent = `${misses} / 5`;
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("resize", () => {
+      updateAvatarPosition();
+    });
+
+    playfield.addEventListener("pointermove", handlePointerMove);
+    playfield.addEventListener("click", () => {
+      if (!running) startGame();
+    });
+    document.addEventListener("keydown", handleKey);
+    playBtn.addEventListener("click", () => {
+      if (!running) startGame();
+    });
+
+    soundBtn.addEventListener("click", async () => {
+      soundEnabled = !soundEnabled;
+      const ctx = ensureAudio();
+      if (ctx && ctx.state === "suspended") {
+        await ctx.resume();
+      }
+      if (!soundEnabled) {
+        stopAmbient();
+      } else if (running) {
+        startAmbient();
+        tone({ freq: 392, type: "sine", duration: 0.08, gain: 0.03 });
+      }
+      updateSoundButton();
+      logLine(soundEnabled ? "sound restored to temple" : "temple falls silent");
+    });
+
+    aiBtn.addEventListener("click", () => {
+      aiEnabled = !aiEnabled;
+      updateAIButton();
+      logLine(aiEnabled ? "AI pilot engaged" : "AI pilot disengaged");
+      if (!running && aiEnabled) {
+        startGame();
+      }
+    });
+
+    updateAvatarPosition();
+    updateSoundButton();
+    updateAIButton();
+    logLine("// ready: move with arrows or pointer; begin rite with Space or click");
+  </script>
+</body>
+</html>
